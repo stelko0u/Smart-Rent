@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+  COMPANY
+}
+
+enum CarType {
+  SEDAN
+  HATCHBACK
+  SUV
+  COUPE
+  CONVERTIBLE
+  CABRIO
+  WAGON
+  VAN
+  PICKUP
+  COMBI
+  OTHER
+}
+
+enum TransmissionType {
+  MANUAL
+  AUTOMATIC
+  SEMI_AUTOMATIC
+  OTHER
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  ELECTRICITY
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  RETURNED
+  CANCELLED
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password      String
+  name          String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime?
+  emailVerified Boolean   @default(false)
+  companyId     Int?
+  cars          Car[]
+  ownedCompany  Company?  @relation("CompanyOwner")
+  reservations  Reservation[]
+  reviews       Review[]
+  company       Company?  @relation(fields: [companyId], references: [id])
+}
+
+model Company {
+  id                 Int       @id @default(autoincrement())
+  name               String?
+  email              String    @unique
+  maintenancePercent Float     @default(0)
+  ownerId            Int       @unique
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime?
+  cars               Car[]
+  owner              User      @relation("CompanyOwner", fields: [ownerId], references: [id])
+  offices            Office[]
+  users              User[]
+}
+
+model Car {
+  id               Int               @id @default(autoincrement())
+  make             String
+  model            String
+  year             Int
+  pricePerDay      Float
+  ownerId          Int
+  images           String[]
+  companyId        Int?
+  officeId         Int?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime?
+  company          Company?          @relation(fields: [companyId], references: [id])
+  office           Office?           @relation(fields: [officeId], references: [id])
+  owner            User              @relation(fields: [ownerId], references: [id])
+  reservations     Reservation[]
+  reviews          Review[]
+  carType          CarType
+  transmissionType TransmissionType
+  fuelType         FuelType
+}
+
+model Reservation {
+  id        Int               @id @default(autoincrement())
+  userId    Int
+  carId     Int
+  startDate DateTime
+  endDate   DateTime
+  status    ReservationStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+  
+  car       Car               @relation(fields: [carId], references: [id])
+  user      User              @relation(fields: [userId], references: [id])
+  
+  @@unique([carId, startDate, endDate])
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  carId     Int
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  car       Car      @relation(fields: [carId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+
+model Office {
+  id        Int       @id @default(autoincrement())
+  companyId Int
+  name      String?
+  address   String?
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime?
+  cars      Car[]
+  company   Company   @relation(fields: [companyId], references: [id])
+}
+
+
