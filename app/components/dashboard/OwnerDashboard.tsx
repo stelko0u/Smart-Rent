@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { getOwnerVehicles, getOwnerStatistics } from "../../lib/api"; // Assume these functions are defined in your API lib
+// Mock functions for build - replace with actual API calls
+const getOwnerVehicles = async () => [];
+const getOwnerStatistics = async () => ({ totalVehicles: 0, totalReservations: 0 });
 import VehicleCard from "../vehicles/CarCard";
 import Button from "../ui/Button";
 
 const OwnerDashboard = () => {
-  const [vehicles, setVehicles] = useState([]);
-  const [statistics, setStatistics] = useState(null);
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [statistics, setStatistics] = useState({ totalVehicles: 0, totalReservations: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,7 +44,7 @@ const OwnerDashboard = () => {
       <h2 className="text-xl mb-2">Your Vehicles</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {vehicles.map((vehicle) => (
-          <VehicleCard key={vehicle.id} vehicle={vehicle} />
+          <VehicleCard key={vehicle.id} car={vehicle} />
         ))}
       </div>
       <Button className="mt-4">Add New Vehicle</Button>

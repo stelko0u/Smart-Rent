@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Modal from 'react-modal';
-import { CarFormValues } from 'types';
+import { CarFormValues } from '../../types/types';
 
 type Props = {
   isOpen: boolean;
@@ -102,7 +102,7 @@ export default function EditCarModal({
               onChange={(e) =>
                 onChange({
                   ...editing,
-                  year: e.target.value === '' ? '' : Number(e.target.value),
+                  year: e.target.value === '' ? 0 : Number(e.target.value),
                 })
               }
               required
@@ -120,8 +120,8 @@ export default function EditCarModal({
               onChange={(e) =>
                 onChange({
                   ...editing,
-                  pricePerDay:
-                    e.target.value === '' ? '' : Number(e.target.value),
+pricePerDay:
+                    e.target.value === '' ? 0 : Number(e.target.value),
                 })
               }
               required

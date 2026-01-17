@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import prisma from '../../../../lib/prisma';
-import { sendVerificationEmail } from '../../../../lib/mail';
+import { userService } from '../../../lib/api';
+import { sendVerificationEmail } from '../../../lib/mail';
 
 export async function POST(req: Request) {
   try {
@@ -15,9 +15,7 @@ export async function POST(req: Request) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
+const user = await userService.getByEmail(normalizedEmail);
 
     if (!user) {
       return NextResponse.json(

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const VehicleForm = ({ initialData, onSubmit }) => {
+const VehicleForm = ({ initialData, onSubmit }: { initialData?: any; onSubmit: (data: any) => void }) => {
   const [vehicleData, setVehicleData] = useState(initialData || {
     make: '',
     model: '',
@@ -9,7 +9,7 @@ const VehicleForm = ({ initialData, onSubmit }) => {
     image: null,
   });
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setVehicleData({
       ...vehicleData,
@@ -17,14 +17,14 @@ const VehicleForm = ({ initialData, onSubmit }) => {
     });
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setVehicleData({
       ...vehicleData,
-      image: e.target.files[0],
+      image: e.target.files?.[0] || null,
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(vehicleData);
   };

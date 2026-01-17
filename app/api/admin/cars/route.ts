@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import jwt, { JwtPayload, JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
-import prisma from "../../../lib/prisma";
+import { userService, carService } from "../../../lib/api";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? "token";
@@ -26,10 +26,7 @@ async function requireAdmin(req: Request) {
     const userId = Number((payload as any).userId ?? payload.sub ?? null);
     if (!userId || Number.isNaN(userId))
       return { ok: false, resp: NextResponse.json({ error: "invalid_token" }, { status: 401 }) };
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, role: true },
-    });
+const user = await userService.getById(userId);
     if (!user)
       return { ok: false, resp: NextResponse.json({ error: "user_not_found" }, { status: 404 }) };
     if (user.role !== "ADMIN")
@@ -49,17 +46,7 @@ export async function GET(req: Request) {
   const check = await requireAdmin(req);
   if (!check.ok) return check.resp;
   try {
-    const cars = await prisma.car.findMany({
-      orderBy: { id: "desc" },
-      select: {
-        id: true,
-        make: true,
-        model: true,
-        year: true,
-        pricePerDay: true,
-        company: { select: { id: true, name: true } },
-      },
-    });
+    const cars = await carService.getAll();
     return NextResponse.json({ ok: true, cars });
   } catch (err) {
     console.error("GET /api/admin/cars error:", err);
@@ -74,9 +61,9 @@ export async function DELETE(req: Request) {
     const body = await req.json();
     const { id } = body;
     if (!id) return NextResponse.json({ ok: false, error: "id_required" }, { status: 400 });
-    const car = await prisma.car.findUnique({ where: { id: Number(id) } });
+const car = await carService.getById(Number(id));
     if (!car) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    await prisma.car.delete({ where: { id: Number(id) } });
+    await carService.delete(Number(id));
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("DELETE /api/admin/cars error:", err);

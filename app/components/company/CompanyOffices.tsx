@@ -1,34 +1,12 @@
 'use client';
-import L from 'leaflet';
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import { LatLngExpression, LeafletMouseEvent } from 'leaflet';
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+import dynamic from 'next/dynamic';
 
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
+// Dynamically import the map component to avoid SSR issues
+const MapComponent = dynamic(() => import('./MapComponent'), {
+  ssr: false,
+  loading: () => <div style={{ height: 400, width: '100%' }}>Loading map...</div>
 });
-
-function ClickMarker({
-  position,
-  onChange,
-}: {
-  position: LatLngExpression | null;
-  onChange: (p: [number, number]) => void;
-}) {
-  useMapEvents({
-    click(e: LeafletMouseEvent) {
-      onChange([e.latlng.lat, e.latlng.lng]);
-    },
-  });
-  return position ? <Marker position={position} /> : null;
-}
 
 export default function CompanyOffices({ companyId }: { companyId: number }) {
   const [offices, setOffices] = useState<any[]>([]);
@@ -36,20 +14,6 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
   const [pos, setPos] = useState<[number, number] | null>(null);
   const [saving, setSaving] = useState(false);
 
-  function coloredMarker(color: string) {
-    return L.divIcon({
-      className: '',
-      html: `
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="${color}"
-          xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-          <circle cx="12" cy="9" r="2.5" fill="white"/>
-        </svg>
-      `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
-    });
-  }
   const companyColors: Record<number, string> = {
     1: '#e11d48', // red
     2: '#2563eb', // blue
@@ -148,26 +112,14 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
           ))}
         </div>
 
-        <div className="flex-1">
-          <MapContainer
-            center={pos ?? [42.7, 23.3]}
-            zoom={12}
-            style={{ height: 400, width: '100%' }}
-          >
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            {offices.map((o) =>
-              o.latitude && o.longitude ? (
-                <Marker
-                  key={o.id}
-                  position={[o.latitude, o.longitude]}
-                  icon={coloredMarker(companyColors[o.companyId] ?? '#6b7280')}
-                />
-              ) : null,
-            )}
-            {editing && (
-              <ClickMarker position={pos} onChange={(p: any) => setPos(p)} />
-            )}
-          </MapContainer>
+<div className="flex-1">
+          <MapComponent
+            offices={offices}
+            editing={editing}
+            pos={pos}
+            setPos={setPos}
+            companyColors={companyColors}
+          />
 
           {editing && (
             <div className="mt-3">

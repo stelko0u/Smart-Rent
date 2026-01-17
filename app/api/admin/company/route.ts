@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import prisma from "../../../../lib/prisma";
+import { userService, companyService } from "../../../lib/api";
 
 export async function POST(req: Request) {
   try {
@@ -19,42 +19,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid maintenancePercent (0-100)" }, { status: 400 });
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+const existing = await userService.getByEmail(email);
     if (existing) {
       return NextResponse.json({ error: "Email already in use" }, { status: 409 });
     }
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashed,
-        name: name,
-        role: "COMPANY",
-      },
+    
+    // Create user first
+    const user = await userService.create({
+      email,
+      password: hashed,
+      name,
+      role: "COMPANY" as any
     });
-
-    try {
-      await prisma.company.create({
-        data: {
-          ownerId: user.id,
-          name,
-          maintenancePercent: maintenance,
-          email,
-        },
-      });
-    } catch (e) {
-      try {
-        await prisma.user.delete({ where: { id: user.id } });
-      } catch (delErr) {
-        console.error("Failed to rollback user after company create error:", delErr);
-      }
-      console.warn("Create company failed:", e);
-      return NextResponse.json(
-        { error: "Failed creating company. Check uniqueness and schema." },
-        { status: 500 }
-      );
-    }
+    
+    // Then create company
+    await companyService.create({
+      ownerId: user.id,
+      name,
+      maintenancePercent: maintenance,
+      email
+    });
 
     return NextResponse.json({ ok: true, userId: user.id });
   } catch (err) {

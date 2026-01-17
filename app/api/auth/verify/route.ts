@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import prisma from '../../../lib/prisma';
+import { userService } from '../../../lib/api';
 
 export const runtime = 'nodejs';
 
@@ -36,16 +36,13 @@ export async function GET(req: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+const user = await userService.getById(userId);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     if (!user.emailVerified) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { emailVerified: true },
-      });
+      await userService.update(userId, { emailVerified: true });
     }
 
     const frontend = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';

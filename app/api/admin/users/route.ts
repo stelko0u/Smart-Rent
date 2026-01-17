@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '../../../lib/prisma';
+import { userService } from '../../../lib/api';
 
 export async function GET(req: NextRequest) {
   try {
@@ -43,15 +43,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-      },
-      orderBy: { id: 'asc' },
-    });
+    const users = await userService.getAll();
 
     return NextResponse.json({ users });
   } catch (err) {

@@ -7,7 +7,7 @@ const ReservationForm = () => {
     const [userId, setUserId] = useState('');
     const [error, setError] = useState('');
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
@@ -31,7 +31,7 @@ const ReservationForm = () => {
 
             // Handle successful reservation creation (e.g., redirect or show a success message)
         } catch (error) {
-            setError(error.message);
+            setError(error instanceof Error ? error.message : 'An error occurred');
         }
     };
 

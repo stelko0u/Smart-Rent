@@ -5,7 +5,7 @@ import jwt, {
   JsonWebTokenError,
   TokenExpiredError,
 } from 'jsonwebtoken';
-import prisma from '../../../lib/prisma';
+import { userService, companyService, transactionService } from '../../../lib/api';
 import bcrypt from 'bcryptjs';
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -46,10 +46,7 @@ async function requireAdmin(req: Request) {
         ok: false,
         resp: NextResponse.json({ error: 'invalid_token' }, { status: 401 }),
       };
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, role: true },
-    });
+const user = await userService.getById(userId);
     if (!user)
       return {
         ok: false,
@@ -84,17 +81,7 @@ export async function GET(req: Request) {
   const check = await requireAdmin(req);
   if (!check.ok) return check.resp;
   try {
-    const companies = await prisma.company.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        maintenancePercent: true,
-        ownerId: true,
-        createdAt: true,
-      },
-      orderBy: { id: 'desc' },
-    });
+const companies = await companyService.getAll();
     return NextResponse.json({ ok: true, companies });
   } catch (err) {
     console.error('GET /api/admin/companies error:', err);
@@ -127,10 +114,7 @@ export async function PATCH(req: Request) {
     if (name !== undefined) data.name = name;
     if (email !== undefined) data.email = email;
 
-    const updated = await prisma.company.update({
-      where: { id: Number(id) },
-      data,
-    });
+const updated = await companyService.update(Number(id), data);
     return NextResponse.json({ ok: true, company: updated });
   } catch (err: any) {
     // handle unique constraint or other prisma errors
@@ -155,23 +139,26 @@ export async function DELETE(req: Request) {
       );
 
     // Optionally delete related records; here we delete company and optionally its owner user
-    const company = await prisma.company.findUnique({
-      where: { id: Number(id) },
-    });
+const company = await companyService.getById(Number(id));
     if (!company)
       return NextResponse.json(
         { ok: false, error: 'not_found' },
         { status: 404 },
       );
 
-    // delete company
-    await prisma.company.delete({ where: { id: Number(id) } });
-    // optionally delete user who owned it (ownerId) — comment out if you don't want this
+    // delete company and user in a transaction
+    const client = await transactionService.beginTransaction();
     try {
-      await prisma.user.delete({ where: { id: company.ownerId } });
+      await client.query('DELETE FROM "Company" WHERE id = $1', [Number(id)]);
+      await client.query('DELETE FROM "User" WHERE id = $1', [company.ownerId]);
+      await transactionService.commitTransaction(client);
     } catch (e) {
-      // if user deletion fails, log but continue
-      console.warn('Failed deleting owner user:', e);
+      await transactionService.rollbackTransaction(client);
+      console.warn('Failed deleting company or owner user:', e);
+      return NextResponse.json(
+        { ok: false, error: 'delete_error' },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ ok: true });
@@ -206,17 +193,17 @@ export async function POST(req: Request) {
         { status: 400 },
       );
 
-    // Check if user or company with email already exists
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+// Check if user or company with email already exists
+    const existingUser = await userService.getByEmail(email);
     if (existingUser)
       return NextResponse.json(
         { ok: false, error: 'user_email_taken' },
         { status: 409 },
       );
 
-    const existingCompany = await prisma.company.findUnique({
-      where: { email },
-    });
+    // Check if a company with this email already exists by checking all companies
+    const allCompanies = await companyService.getAll();
+    const existingCompany = allCompanies.find(c => c.email === email);
     if (existingCompany)
       return NextResponse.json(
         { ok: false, error: 'company_email_taken' },
@@ -226,35 +213,27 @@ export async function POST(req: Request) {
     // Hash password
     const hashed = await bcrypt.hash(String(password), 10);
 
-    // Create user first, then company, then link them in a transaction-like flow
-    const created = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          email,
-          password: hashed,
-          name,
-          role: 'COMPANY', // enum value expected in schema
-          emailVerified: true,
-          createdAt: new Date(),
-        },
-      });
-
-      const company = await tx.company.create({
-        data: {
-          name,
-          email,
-          maintenancePercent: m,
-          ownerId: user.id, // ownerId required by schema
-        },
-      });
-
-      await tx.user.update({
-        where: { id: user.id },
-        data: { companyId: company.id },
-      });
-
-      return { user, company };
+    // Create user first, then company
+    const user = await userService.create({
+      email,
+      password: hashed,
+      name,
+      role: 'COMPANY' as any,
+      emailVerified: true,
+      createdAt: new Date()
     });
+
+    const company = await companyService.create({
+      name,
+      email,
+      maintenancePercent: m,
+      ownerId: user.id
+    });
+
+    // Update user with companyId
+    await userService.update(user.id, { companyId: company.id });
+
+    const created = { user, company };
 
     return NextResponse.json(
       { ok: true, company: created.company },

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import prisma from '../../../lib/prisma';
+import { userService } from '../../../lib/api';
 import { sendVerificationEmail } from '../../../lib/mail';
 
 export const runtime = 'nodejs';
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+const existing = await userService.getByEmail(email);
     if (existing) {
       return NextResponse.json(
         { error: 'Unable to create account' },
@@ -37,23 +37,27 @@ export async function POST(req: Request) {
 
     const hashed = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashed,
-        name,
-        emailVerified: false,
-      },
-      select: { id: true, email: true, name: true },
+    const user = await userService.create({
+      email,
+      password: hashed,
+      name: name || undefined,
+      emailVerified: false,
     });
 
-    try {
+    // Return only the fields we want to expose
+    const userResponse = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    };
+
+try {
       await sendVerificationEmail(user.email, user.id);
     } catch (sendErr) {
       console.error('sendVerificationEmail failed:', sendErr);
     }
 
-    return NextResponse.json({ ok: true, user }, { status: 201 });
+    return NextResponse.json({ ok: true, user: userResponse }, { status: 201 });
   } catch (err: any) {
     console.error('POST /api/auth/signup error:', err);
     return NextResponse.json(

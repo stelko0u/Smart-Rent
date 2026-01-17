@@ -1,5 +1,6 @@
 import React from 'react';
 import { Car } from './CompanyDashboard';
+import Link from 'next/dist/client/link';
 
 export default function ManageCars({
   cars,
@@ -24,7 +25,7 @@ export default function ManageCars({
               key={c.id}
               className="p-3 border rounded flex items-center gap-4"
             >
-              <div className="w-20 h-14 flex-shrink-0 rounded overflow-hidden bg-gray-100 border">
+              <div className="w-20 h-14 shrink-0 rounded overflow-hidden bg-gray-100 border">
                 {c.images && c.images.length ? (
                   <img
                     src={c.images[0]}
@@ -49,13 +50,14 @@ export default function ManageCars({
               </div>
 
               <div className="flex gap-2">
-                <button
+                {/* <button
                   onClick={() => onDetails?.(c.id)}
                   className="px-3 py-1 bg-blue-100 text-blue-800 rounded"
                   aria-label={`Details ${c.make} ${c.model}`}
                 >
                   Details
-                </button>
+                </button> */}
+                <Link href={`/car/${c.id}`}>Details</Link>
                 <button
                   onClick={() => onEdit?.(c.id)}
                   className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded"

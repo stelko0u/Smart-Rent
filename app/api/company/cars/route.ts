@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import prisma from '../../../lib/prisma';
+import { carService } from '../../../lib/api';
 import type {
   CarFormValues,
   CarType,
   TransmissionType,
 } from '../../../types/types';
-import { FuelType } from '@/app/generated/prisma/enums';
+
+// Define FuelType enum locally since we're removing Prisma
+type FuelType = 'PETROL' | 'DIESEL' | 'ELECTRICITY';
 
 export const runtime = 'nodejs';
 
@@ -232,37 +234,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const created = await prisma.car.create({
-      data: {
-        make,
-        model,
-        year: Number(year),
-        pricePerDay: Number(pricePerDay),
-        images,
-        ownerId: Number(ownerId),
-        companyId: Number(companyId),
-        carType: carType as CarType,
-        transmissionType: transmissionType as TransmissionType,
-        fuelType: fuelType as FuelType,
-        officeId: officeId ?? undefined,
-      },
-      select: {
-        id: true,
-        make: true,
-        model: true,
-        year: true,
-        pricePerDay: true,
-        images: true,
-        carType: true,
-        transmissionType: true,
-        fuelType: true,
-        officeId: true,
-        companyId: true,
-        createdAt: true,
-      },
+const created = await carService.create({
+      make,
+      model,
+      year: Number(year),
+      pricePerDay: Number(pricePerDay),
+      images,
+      ownerId: Number(ownerId),
+      companyId: Number(companyId),
+      carType: carType as CarType,
+      transmissionType: transmissionType as TransmissionType,
+      fuelType: fuelType as FuelType,
+      officeId: officeId ?? undefined,
     });
 
-    return NextResponse.json({ car: created }, { status: 201 });
+    // Return only the fields we want to expose
+    const carResponse = {
+      id: created.id,
+      make: created.make,
+      model: created.model,
+      year: created.year,
+      pricePerDay: created.pricePerDay,
+      images: created.images,
+      carType: created.carType,
+      transmissionType: created.transmissionType,
+      fuelType: created.fuelType,
+      officeId: created.officeId,
+      companyId: created.companyId,
+      createdAt: created.createdAt,
+    };
+
+    return NextResponse.json({ car: carResponse }, { status: 201 });
   } catch (err) {
     console.error('company/cars POST error:', err);
     return NextResponse.json(
@@ -275,21 +277,7 @@ export async function POST(req: NextRequest) {
 // GET handler
 export async function GET(req: NextRequest) {
   try {
-    const cars = await prisma.car.findMany({
-      select: {
-        id: true,
-        make: true,
-        model: true,
-        year: true,
-        pricePerDay: true,
-        images: true,
-        carType: true,
-        transmissionType: true,
-        fuelType: true,
-        officeId: true,
-        companyId: true,
-      },
-    });
+const cars = await carService.search({}); // Get all cars
 
     return NextResponse.json({ cars }, { status: 200 });
   } catch (err) {

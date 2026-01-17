@@ -6,8 +6,15 @@ export interface Car {
   pricePerDay: number;
   images?: string[];
   officeId?: number | null;
+  companyId?: number;
+  ownerId?: number;
+  carType?: string;
+  transmissionType?: string;
+  fuelType?: string;
   createdAt?: string;
   updatedAt?: string;
+  company?: Company;
+  office?: Office;
 }
 
 export interface CarFormValues {
@@ -32,3 +39,25 @@ export type CarType =
   | 'OTHER';
 
 export type TransmissionType = 'MANUAL' | 'AUTOMATIC' | 'OTHER';
+
+// types/index.ts
+export interface Company {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface Office {
+  id: number;
+  name: string;
+  address: string;
+}
+
+
+
+export interface Reservation {
+  id: number;
+  start_date: string;
+  end_date: string;
+}
+

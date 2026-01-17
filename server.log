@@ -1,0 +1,422 @@
+
+> autorent@0.1.0 dev
+> next dev
+
+⚠ Port 3000 is in use by process 38284, using available port 3001 instead.
+▲ Next.js 16.1.2 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.0.107:3001
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 1393ms
+ GET /api/car 200 in 575ms (compile: 485ms, render: 91ms)
+=== RESERVATION REQUEST DEBUG ===
+Full body: {
+  "carId": 1,
+  "startDate": "2026-02-01",
+  "endDate": "2026-02-03",
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "phone": "555-0123",
+  "notes": "Test reservation"
+}
+Extracted fields: {
+  carId: 'number',
+  startDate: 'string',
+  endDate: 'string',
+  firstName: 'string',
+  lastName: 'string',
+  email: 'string',
+  phone: 'string',
+  notes: 'string'
+}
+ POST /api/reservations 409 in 152ms (compile: 125ms, render: 27ms)
+ GET /api/car 200 in 87ms (compile: 34ms, render: 53ms)
+=== RESERVATION REQUEST DEBUG ===
+Full body: {
+  "carId": 1,
+  "startDate": "2026-02-01",
+  "endDate": "2026-02-03",
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "phone": "555-0123",
+  "notes": "Test reservation"
+}
+Extracted fields: {
+  carId: 'number',
+  startDate: 'string',
+  endDate: 'string',
+  firstName: 'string',
+  lastName: 'string',
+  email: 'string',
+  phone: 'string',
+  notes: 'string'
+}
+ POST /api/reservations 409 in 84ms (compile: 34ms, render: 50ms)
+ GET /api/reservations?carId=1 200 in 166ms (compile: 4ms, render: 162ms)
+ GET /api/car 200 in 202ms (compile: 41ms, render: 161ms)
+=== RESERVATION REQUEST DEBUG ===
+Full body: {
+  "carId": 1,
+  "startDate": "2026-02-01",
+  "endDate": "2026-02-03",
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "phone": "555-0123",
+  "notes": "Test reservation"
+}
+Extracted fields: {
+  carId: 'number',
+  startDate: 'string',
+  endDate: 'string',
+  firstName: 'string',
+  lastName: 'string',
+  email: 'string',
+  phone: 'string',
+  notes: 'string'
+}
+=== AVAILABILITY CHECK DEBUG ===
+Car ID: 1
+Start Date: 2026-02-01T00:00:00.000Z
+End Date: 2026-02-03T00:00:00.000Z
+Query: 
+      SELECT COUNT(*) as count
+      FROM "Reservation" 
+      WHERE "carId" = $1 
+      AND status IN ('PENDING', 'CONFIRMED', 'IN_PROGRESS')
+      AND (
+        ("startDate" <= $2 AND "endDate" >= $3) OR
+        ("startDate" <= $3 AND "endDate" >= $2) OR
+        ("startDate" >= $2 AND "endDate" <= $3)
+      )
+    
+Params: [ 1, 2026-02-01T00:00:00.000Z, 2026-02-03T00:00:00.000Z ]
+Query result: 0
+Is available: false
+ POST /api/reservations 409 in 89ms (compile: 38ms, render: 51ms)
+ GET /api/car 200 in 95ms (compile: 47ms, render: 48ms)
+=== RESERVATION REQUEST DEBUG ===
+Full body: {
+  "carId": 1,
+  "startDate": "2026-02-01",
+  "endDate": "2026-02-03",
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "phone": "555-0123",
+  "notes": "Test reservation"
+}
+Extracted fields: {
+  carId: 'number',
+  startDate: 'string',
+  endDate: 'string',
+  firstName: 'string',
+  lastName: 'string',
+  email: 'string',
+  phone: 'string',
+  notes: 'string'
+}
+=== AVAILABILITY CHECK DEBUG ===
+Car ID: 1
+Start Date: 2026-02-01T00:00:00.000Z
+End Date: 2026-02-03T00:00:00.000Z
+Query: 
+      SELECT COUNT(*) as count
+      FROM "Reservation" 
+      WHERE "carId" = $1 
+      AND status IN ('PENDING', 'CONFIRMED', 'IN_PROGRESS')
+      AND (
+        ("startDate" <= $2 AND "endDate" >= $3) OR
+        ("startDate" <= $3 AND "endDate" >= $2) OR
+        ("startDate" >= $2 AND "endDate" <= $3)
+      )
+    
+Params: [ 1, 2026-02-01T00:00:00.000Z, 2026-02-03T00:00:00.000Z ]
+Query result: 0
+Result type: string
+Is available: true
+Attempting to create reservation with data: {
+  carId: 1,
+  startDate: 2026-02-01T00:00:00.000Z,
+  endDate: 2026-02-03T00:00:00.000Z,
+  status: 'PENDING',
+  userId: null,
+  firstName: 'John',
+  lastName: 'Doe',
+  email: 'john.doe@example.com',
+  phone: '555-0123',
+  notes: 'Test reservation'
+}
+Database query error {
+  text: '\n' +
+    '      INSERT INTO "Reservation" ("carId", "startDate", "endDate", "status", "userId", "firstName", "lastName", "email", "phone", "notes")\n' +
+    '      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n' +
+    '      RETURNING *\n' +
+    '    ',
+  error: error: column "firstName" of relation "Reservation" does not exist
+      at async DatabaseService.query (app\lib\database.ts:26:22)
+      at async DatabaseService.insert (app\lib\database.ts:62:20)
+      at async Object.create (app\lib\api.ts:355:12)
+      at async POST (app\api\reservations\route.ts:89:21)
+    24 |     const start = Date.now();
+    25 |     try {
+  > 26 |       const result = await pool.query(text, params);
+       |                      ^
+    27 |       const duration = Date.now() - start;
+    28 |
+    29 |       // SHOW IN CONSOLE WHAT QUERY WAS EXECUTED {
+    length: 133,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '88',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_target.c',
+    line: '1073',
+    routine: 'checkInsertTargets'
+  }
+}
+Error creating reservation: error: column "firstName" of relation "Reservation" does not exist
+    at async DatabaseService.query (app\lib\database.ts:26:22)
+    at async DatabaseService.insert (app\lib\database.ts:62:20)
+    at async Object.create (app\lib\api.ts:355:12)
+    at async POST (app\api\reservations\route.ts:89:21)
+  24 |     const start = Date.now();
+  25 |     try {
+> 26 |       const result = await pool.query(text, params);
+     |                      ^
+  27 |       const duration = Date.now() - start;
+  28 |
+  29 |       // SHOW IN CONSOLE WHAT QUERY WAS EXECUTED {
+  length: 133,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '88',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_target.c',
+  line: '1073',
+  routine: 'checkInsertTargets'
+}
+ POST /api/reservations 500 in 448ms (compile: 40ms, render: 408ms)
+  Reload env: .env
+ GET /api/car 200 in 116ms (compile: 55ms, render: 62ms)
+=== RESERVATION REQUEST DEBUG ===
+Full body: {
+  "carId": 1,
+  "startDate": "2026-02-01",
+  "endDate": "2026-02-03",
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "phone": "555-0123",
+  "notes": "Test reservation"
+}
+Extracted fields: {
+  carId: 'number',
+  startDate: 'string',
+  endDate: 'string',
+  firstName: 'string',
+  lastName: 'string',
+  email: 'string',
+  phone: 'string',
+  notes: 'string'
+}
+=== AVAILABILITY CHECK DEBUG ===
+Car ID: 1
+Start Date: 2026-02-01T00:00:00.000Z
+End Date: 2026-02-03T00:00:00.000Z
+Query: 
+      SELECT COUNT(*) as count
+      FROM "Reservation" 
+      WHERE "carId" = $1 
+      AND status IN ('PENDING', 'CONFIRMED', 'IN_PROGRESS')
+      AND (
+        ("startDate" <= $2 AND "endDate" >= $3) OR
+        ("startDate" <= $3 AND "endDate" >= $2) OR
+        ("startDate" >= $2 AND "endDate" <= $3)
+      )
+    
+Params: [ 1, 2026-02-01T00:00:00.000Z, 2026-02-03T00:00:00.000Z ]
+Query result: 0
+Result type: string
+Is available: true
+Attempting to create reservation with data: {
+  carId: 1,
+  startDate: 2026-02-01T00:00:00.000Z,
+  endDate: 2026-02-03T00:00:00.000Z,
+  status: 'PENDING',
+  userId: null,
+  firstName: 'John',
+  lastName: 'Doe',
+  email: 'john.doe@example.com',
+  phone: '555-0123',
+  notes: 'Test reservation'
+}
+Reservation created successfully: {
+  id: 1,
+  userId: null,
+  carId: 1,
+  startDate: 2026-02-01T00:00:00.000Z,
+  endDate: 2026-02-03T00:00:00.000Z,
+  status: 'PENDING',
+  createdAt: 2026-01-17T21:08:23.941Z,
+  firstName: 'John',
+  lastName: 'Doe',
+  email: 'john.doe@example.com',
+  phone: '555-0123',
+  notes: 'Test reservation'
+}
+ POST /api/reservations 201 in 51ms (compile: 23ms, render: 27ms)
+  Reload env: .env
+Persisting failed: Unable to write SST file 00000145.sst
+
+Caused by:
+    The system cannot find the path specified. (os error 3)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)

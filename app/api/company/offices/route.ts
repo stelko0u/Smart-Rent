@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '../../../lib/prisma';
+import { officeService } from '../../../lib/api';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const companyId = searchParams.get('companyId');
 
   try {
-    const offices = await prisma.office.findMany({});
+    const offices = await officeService.getByCompany(Number(companyId) || 0);
     return NextResponse.json(offices, { status: 200 });
   } catch (error) {
     return NextResponse.json(
@@ -27,16 +27,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const office = await prisma.office.create({
-      data: {
-        name,
-        address,
-        latitude,
-        longitude,
-        company: {
-          connect: { id: companyId },
-        },
-      },
+const office = await officeService.create({
+      name,
+      address,
+      latitude,
+      longitude,
+      companyId,
     });
 
     return NextResponse.json(office, { status: 201 });

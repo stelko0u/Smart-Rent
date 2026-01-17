@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import prisma from '../../../lib/prisma';
+import { userService } from '../../../lib/api';
 
 export const runtime = 'nodejs';
 
@@ -33,16 +33,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: String(email).toLowerCase() },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        password: true,
-        emailVerified: true,
-      },
-    });
+const user = await userService.getByEmail(String(email).toLowerCase());
 
     if (!user || !user.password) {
       return NextResponse.json(

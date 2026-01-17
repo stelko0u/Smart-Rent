@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import jwt, { JwtPayload, JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
-import prisma from "../../../lib/prisma";
+import { userService } from "../../../lib/api";
 
 export const runtime = "nodejs";
 
@@ -34,16 +34,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: "invalid_token" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        companyId: true,
-      },
-    });
+const user = await userService.getById(userId);
 
     if (!user) {
       return NextResponse.json({ ok: false, error: "user_not_found" }, { status: 404 });
