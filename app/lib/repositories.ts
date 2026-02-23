@@ -492,19 +492,13 @@ export class OfficeRepository {
 
 export class PasswordResetTokenRepository {
   static async create(
-    data: Omit<PasswordResetToken, 'id' | 'createdAt'>,
+    data: Omit<PasswordResetToken, 'createdAt'>,
   ): Promise<PasswordResetToken> {
-    const fields = Object.keys(data)
-      .map((key) => `"${key}"`)
-      .join(', ');
-    const placeholders = Object.keys(data)
-      .map((_, i) => `$${i + 1}`)
-      .join(', ');
-    const values = Object.values(data);
-
     const result = await queryOne<PasswordResetToken>(
-      `INSERT INTO "PasswordResetToken" (${fields}) VALUES (${placeholders}) RETURNING *`,
-      values,
+      `INSERT INTO "PasswordResetToken" (id, email, token, "expiresAt") 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING *`,
+      [data.id, data.email, data.token, data.expiresAt],
     );
     return result!;
   }
@@ -520,6 +514,14 @@ export class PasswordResetTokenRepository {
     const result = await query(
       'DELETE FROM "PasswordResetToken" WHERE email = $1',
       [email],
+    );
+    return result.length > 0;
+  }
+
+  static async deleteByToken(token: string): Promise<boolean> {
+    const result = await query(
+      'DELETE FROM "PasswordResetToken" WHERE token = $1',
+      [token],
     );
     return result.length > 0;
   }

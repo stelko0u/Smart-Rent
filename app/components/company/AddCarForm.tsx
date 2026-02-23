@@ -140,27 +140,27 @@ export default function AddCarForm({
   }
 
   return (
-    <section>
-      <h2 className="text-xl font-medium mb-4">Add car</h2>
+    <section className="text-gray-600">
+      <h2 className="text-xl font-medium mb-4 text-gray-600">Add car</h2>
       {error && <div className="mb-3 text-red-600">{error}</div>}
 
       <form onSubmit={submit} className="max-w-xl flex flex-col gap-3">
         <input
-          placeholder="Make (e.g. Toyota)"
+          placeholder="Make (e.g. Audi)"
           value={make}
           onChange={(e) => setMake(e.target.value)}
           className="px-3 py-2 border rounded"
           required
         />
         <input
-          placeholder="Model (e.g. Corolla)"
+          placeholder="Model (e.g. S2)"
           value={model}
           onChange={(e) => setModel(e.target.value)}
           className="px-3 py-2 border rounded"
           required
         />
         <input
-          placeholder="Year (e.g. 2022)"
+          placeholder="Year (e.g. 1994)"
           type="number"
           value={year === '' ? '' : String(year)}
           onChange={(e) =>

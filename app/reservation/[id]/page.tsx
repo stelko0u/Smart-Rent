@@ -165,7 +165,7 @@ export default function ReservationPage() {
             <p className="text-gray-600">
               Price per day:
               <span className="font-semibold text-gray-900 ml-2">
-                ${car.pricePerDay}
+                €{car.pricePerDay}
               </span>
             </p>
           </div>
@@ -236,7 +236,9 @@ export default function ReservationPage() {
 
         {/* RIGHT SIDE - SUMMARY */}
         <div className="bg-white rounded-2xl shadow p-6 h-fit sticky top-10">
-          <h3 className="text-xl font-semibold mb-6 text-gray-500">Reservation Summary</h3>
+          <h3 className="text-xl font-semibold mb-6 text-gray-500">
+            Reservation Summary
+          </h3>
 
           {!selectedStartDate && (
             <p className="text-gray-500 text-sm">
@@ -249,12 +251,16 @@ export default function ReservationPage() {
               <div className="space-y-3 text-lg">
                 <div className="flex justify-between">
                   <span className="text-gray-500 font-bold">Pick-up:</span>
-                  <span className="text-gray-500">{selectedStartDate.toLocaleDateString()}</span>
+                  <span className="text-gray-500">
+                    {selectedStartDate.toLocaleDateString()}
+                  </span>
                 </div>
 
                 <div className="flex justify-between">
                   <span className="text-gray-500 font-bold">Drop-off:</span>
-                  <span className="text-gray-500">{selectedEndDate.toLocaleDateString()}</span>
+                  <span className="text-gray-500">
+                    {selectedEndDate.toLocaleDateString()}
+                  </span>
                 </div>
 
                 <div className="flex justify-between">

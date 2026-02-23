@@ -15,6 +15,8 @@ export interface Car {
   updatedAt?: string;
   company?: Company;
   office?: Office;
+  power: number;
+  displacement: number;
 }
 
 export interface CarFormValues {
@@ -53,11 +55,8 @@ export interface Office {
   address: string;
 }
 
-
-
 export interface Reservation {
   id: number;
   start_date: string;
   end_date: string;
 }
-

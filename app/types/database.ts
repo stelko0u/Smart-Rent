@@ -55,6 +55,8 @@ export interface Car {
     | 'OTHER';
   transmissionType: 'MANUAL' | 'AUTOMATIC' | 'SEMI_AUTOMATIC' | 'OTHER';
   fuelType: 'PETROL' | 'DIESEL' | 'ELECTRICITY';
+  power: number;
+  displacement: number;
 }
 
 export interface Reservation {

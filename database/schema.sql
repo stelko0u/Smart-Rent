@@ -1,4 +1,4 @@
--- AutoRent Database Schema
+-- Smart Rent Database Schema
 -- PostgreSQL schema replacing Prisma ORM
 
 -- Enums

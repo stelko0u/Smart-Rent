@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import AngleLeft from '../../components/icons/AngleLeft';
+import AngleRight from '../../components/icons/AngleRight';
 
 interface ImageSliderProps {
   images: string[];
@@ -12,31 +14,25 @@ export default function ImageSlider({ images, carName }: ImageSliderProps) {
 
   if (!images || images.length === 0) {
     return (
-      <div className="w-full h-96 bg-gray-200 rounded-lg flex items-center justify-center">
-        <span className="text-gray-500 text-xl">No images available</span>
+      <div className="w-full h-96 bg-gray-200 rounded-2xl flex items-center justify-center">
+        <span className="text-gray-500">No images available</span>
       </div>
     );
   }
 
-  const goToPrevious = () => {
-    setCurrentIndex((prevIndex) =>
-      prevIndex === 0 ? images.length - 1 : prevIndex - 1,
-    );
-  };
-
-  const goToNext = () => {
-    setCurrentIndex((prevIndex) =>
-      prevIndex === images.length - 1 ? 0 : prevIndex + 1,
-    );
-  };
+  const prevSlide = () =>
+    setCurrentIndex((i) => (i === 0 ? images.length - 1 : i - 1));
+  const nextSlide = () =>
+    setCurrentIndex((i) => (i === images.length - 1 ? 0 : i + 1));
+  const goToSlide = (index: number) => setCurrentIndex(index);
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full space-y-4">
       {/* Main Image */}
-      <div className="relative h-96 md:h-[500px] overflow-hidden rounded-lg">
+      <div className="relative h-96 md:h-[500px] overflow-hidden rounded-2xl shadow-lg bg-black group">
         <img
           src={images[currentIndex]}
-          alt={`${carName} - Image ${currentIndex + 1}`}
+          alt={`${carName} - ${currentIndex + 1}`}
           className="w-full h-full object-cover"
         />
 
@@ -44,68 +40,42 @@ export default function ImageSlider({ images, carName }: ImageSliderProps) {
         {images.length > 1 && (
           <>
             <button
-              onClick={goToPrevious}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-3 transition"
-              aria-label="Previous image"
+              onClick={prevSlide}
+              className="absolute left-2 top-1/2 -translate-y-1/2 p-3 rounded-full shadow-lg transition-transform z-10 hover:scale-150 cursor-pointer"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
+              <AngleLeft className="w-12 h-12 p-2 bg-black/50 rounded-full " />
             </button>
             <button
-              onClick={goToNext}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-3 transition"
-              aria-label="Next image"
+              onClick={nextSlide}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full shadow-lg transition-transform z-10 hover:scale-150 cursor-pointer"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+              <AngleRight className="w-12 h-12 p-2 bg-black/50 rounded-full " />
             </button>
           </>
         )}
 
-        {/* Image Counter */}
-        <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+        {/* Counter */}
+        <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-base">
           {currentIndex + 1} / {images.length}
         </div>
       </div>
 
-      {/* Thumbnail Gallery */}
+      {/* Thumbnails */}
       {images.length > 1 && (
-        <div className="mt-4 grid grid-cols-4 md:grid-cols-6 gap-2">
-          {images.map((image, index) => (
+        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+          {images.map((img, i) => (
             <button
-              key={index}
-              onClick={() => setCurrentIndex(index)}
-              className={`relative h-20 rounded-lg overflow-hidden border-2 transition ${
-                index === currentIndex
-                  ? 'border-indigo-600'
-                  : 'border-transparent hover:border-gray-300'
+              key={i}
+              onClick={() => goToSlide(i)}
+              className={`relative h-20 rounded overflow-hidden ${
+                i === currentIndex
+                  ? 'ring-2 ring-indigo-500'
+                  : 'opacity-70 hover:opacity-100'
               }`}
             >
               <img
-                src={image}
-                alt={`Thumbnail ${index + 1}`}
+                src={img}
+                alt={`Thumb ${i + 1}`}
                 className="w-full h-full object-cover"
               />
             </button>

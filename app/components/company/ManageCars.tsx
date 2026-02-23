@@ -15,7 +15,7 @@ export default function ManageCars({
 }) {
   return (
     <section>
-      <h2 className="text-xl font-medium mb-4">Manage cars</h2>
+      <h2 className="text-xl font-medium mb-4 text-gray-600">Manage cars</h2>
       {cars.length === 0 ? (
         <p>No cars added yet.</p>
       ) : (
@@ -39,10 +39,10 @@ export default function ManageCars({
                 )}
               </div>
 
-              <div className="flex-1">
+              <div className="flex-1 text-gray-600">
                 <div className="font-semibold">{`${c.make} ${c.model}`}</div>
                 <div className="text-sm text-gray-600">
-                  {c.year} — {c.pricePerDay} лв/ден
+                  {c.year} — {c.pricePerDay}€ / per day
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
                   {c.companyId ?? ''}
