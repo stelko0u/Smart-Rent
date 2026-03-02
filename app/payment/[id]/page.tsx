@@ -1,161 +1,134 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import Calendar from '../../components/reservations/Calendar';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
+import CheckoutForm from '../../components/payments/PaymentForm';
+import { useParams, useRouter } from 'next/navigation';
 
-interface Car {
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+);
+
+interface ReservationDetails {
   id: number;
-  make: string;
-  model: string;
-  year: number;
+  carMake: string;
+  carModel: string;
+  carImage: string;
+  startDate: string;
+  endDate: string;
+  totalAmount: number;
+  days: number;
   pricePerDay: number;
-  images: string[];
 }
 
-interface Reservation {
-  startDate: string | Date;
-  endDate: string | Date;
-  status: string;
-}
-
-export default function ReservationPage() {
-  const router = useRouter();
+export default function PaymentPage() {
   const params = useParams();
-  const carId = params?.id as string;
+  const router = useRouter();
+  const reservationId = parseInt(params.id as string);
 
-  const [car, setCar] = useState<Car | null>(null);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-
-  const [selectedStartDate, setSelectedStartDate] = useState<Date | null>(null);
-  const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
-
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'ON_SPOT'>(
-    'CARD',
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [reservation, setReservation] = useState<ReservationDetails | null>(
+    null,
   );
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!carId) return;
+    if (!reservationId) return;
+    loadReservationAndCreateIntent();
+  }, [reservationId]);
 
-    async function loadData() {
-      try {
-        const [carRes, reservationsRes] = await Promise.all([
-          fetch(`/api/cars/${carId}`),
-          fetch(`/api/cars/${carId}/reservation`),
-        ]);
-
-        if (!carRes.ok) throw new Error('Failed to load car');
-        if (!reservationsRes.ok) throw new Error('Failed to load reservations');
-
-        const carData = await carRes.json();
-        const reservationsData = await reservationsRes.json();
-
-        setCar(carData.car);
-        setReservations(reservationsData.reservations || []);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load data');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadData();
-  }, [carId]);
-
-  const calculateDays = () => {
-    if (!selectedStartDate || !selectedEndDate) return 0;
-    const diff = selectedEndDate.getTime() - selectedStartDate.getTime();
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
-  };
-
-  const calculateTotal = () => {
-    if (!car) return 0;
-    return calculateDays() * car.pricePerDay;
-  };
-
-  const handleContinue = async () => {
-    if (
-      !selectedStartDate ||
-      !selectedEndDate ||
-      !car ||
-      !firstName ||
-      !lastName ||
-      !email ||
-      !phone
-    ) {
-      setError('Please fill in all required fields');
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-
+  const loadReservationAndCreateIntent = async () => {
     try {
-      const res = await fetch('/api/reservation', {
-        method: 'POST',
+      setLoading(true);
+
+      // Load reservation details
+      const resRes = await fetch(`/api/reservations/${reservationId}`, {
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          carId: car.id,
-          startDate: selectedStartDate.toISOString(),
-          endDate: selectedEndDate.toISOString(),
-          firstName,
-          lastName,
-          email,
-          phone,
-          paymentMethod,
-        }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to create reservation');
+      if (!resRes.ok) {
+        throw new Error('Reservation not found');
       }
 
-      // If payment method is CARD, redirect to payment page
-      // If ON_SPOT, redirect to success page
-      if (paymentMethod === 'CARD') {
-        router.push(`/payment/${data.reservation.id}`);
-      } else {
-        router.push(`/reservation/success/${data.reservation.id}`);
+      const resData = await resRes.json();
+      setReservation(resData.reservation);
+
+      // Create payment intent
+      const paymentRes = await fetch('/api/payments/create-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ reservationId }),
+      });
+
+      if (!paymentRes.ok) {
+        const errorData = await paymentRes.json();
+        throw new Error(errorData.error || 'Failed to initialize payment');
       }
+
+      const paymentData = await paymentRes.json();
+      setClientSecret(paymentData.clientSecret);
     } catch (err: any) {
-      setError(err.message || 'Failed to create reservation');
+      setError(err.message);
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-lg">
-        Loading reservation details...
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-lg">Loading payment...</p>
+        </div>
       </div>
     );
   }
 
-  if (!car) {
+  if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-red-600">
-        {error || 'Car not found'}
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-lg">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-8 h-8 text-red-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-red-600 mb-2 text-center">
+            Payment Error
+          </h2>
+          <p className="text-gray-700 text-center mb-6">{error}</p>
+          <button
+            onClick={() => router.push('/profile?tab=reservations')}
+            className="w-full px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+          >
+            Go to My Reservations
+          </button>
+        </div>
       </div>
     );
   }
 
-  const days = calculateDays();
-  const total = calculateTotal();
+  if (!reservation || !clientSecret) {
+    return null;
+  }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-10 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-100 py-12 px-4">
+      <div className="max-w-5xl mx-auto">
         {/* Back Button */}
         <button
           onClick={() => router.back()}
@@ -177,120 +150,14 @@ export default function ReservationPage() {
           <span className="font-medium">Back</span>
         </button>
 
-        <div className="grid lg:grid-cols-3 gap-10">
-          {/* LEFT SIDE */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Car Info */}
-            <div className="bg-white rounded-2xl shadow p-6">
-              <h2 className="text-2xl font-bold mb-4 text-gray-600">
-                {car.make} {car.model}
-              </h2>
-
-              {car.images?.[0] && (
-                <img
-                  src={car.images[0]}
-                  className="w-full h-88 object-cover rounded-xl mb-4"
-                  alt="Car"
-                />
-              )}
-
-              <p className="text-gray-600">
-                Price per day:
-                <span className="font-semibold text-gray-900 ml-2">
-                  €{car.pricePerDay}
-                </span>
-              </p>
-            </div>
-
-            {/* Calendar */}
-            <div className="bg-white rounded-2xl shadow p-6">
-              <h3 className="text-xl font-semibold mb-4 text-gray-600">
-                Select Reservation Dates
-              </h3>
-
-              <Calendar
-                reservations={reservations}
-                selectedStartDate={selectedStartDate}
-                selectedEndDate={selectedEndDate}
-                onDateSelect={(start, end) => {
-                  setSelectedStartDate(start);
-                  setSelectedEndDate(end);
-                }}
-              />
-            </div>
-
-            {/* Personal Info */}
-            <div className="bg-white rounded-2xl shadow p-6">
-              <h3 className="text-xl font-semibold mb-4 text-gray-600">
-                Personal Information
-              </h3>
-
-              <div className="grid md:grid-cols-2 gap-4 text-gray-600 text-base">
-                <span className="flex flex-col">
-                  <label className="mb-1">First Name</label>
-                  <input
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    className="border rounded-lg px-4 py-2"
-                  />
-                </span>
-                <span className="flex flex-col">
-                  <label className="mb-1">Last Name</label>
-                  <input
-                    type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    className="border rounded-lg px-4 py-2"
-                  />
-                </span>
-                <span className="flex flex-col">
-                  <label className="mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="border rounded-lg px-4 py-2 md:col-span-2"
-                  />
-                </span>
-                <span className="flex flex-col">
-                  <label className="mb-1">Phone</label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="border rounded-lg px-4 py-2 md:col-span-2"
-                  />
-                </span>
-              </div>
-            </div>
-
-            {/* Payment Method Selection */}
-            <div className="bg-white rounded-2xl shadow p-6">
-              <h3 className="text-xl font-semibold mb-4 text-gray-600">
-                Payment Method
-              </h3>
-
-              <div className="space-y-3">
-                <label className="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-gray-50 transition">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="CARD"
-                    checked={paymentMethod === 'CARD'}
-                    onChange={() => setPaymentMethod('CARD')}
-                    className="w-5 h-5 text-indigo-600"
-                  />
-                  <div className="ml-4 flex-1">
-                    <div className="font-semibold text-gray-900">
-                      Pay Online with Card
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Secure online payment with your debit/credit card
-                    </div>
-                  </div>
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Left Side - Payment Form */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
                   <svg
-                    className="w-8 h-8 text-gray-400"
+                    className="w-6 h-6 text-indigo-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -302,119 +169,157 @@ export default function ReservationPage() {
                       d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
                     />
                   </svg>
-                </label>
-
-                <label className="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-gray-50 transition">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="ON_SPOT"
-                    checked={paymentMethod === 'ON_SPOT'}
-                    onChange={() => setPaymentMethod('ON_SPOT')}
-                    className="w-5 h-5 text-indigo-600"
-                  />
-                  <div className="ml-4 flex-1">
-                    <div className="font-semibold text-gray-900">
-                      Pay On-Site
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Pay when you pick up the car at the office
-                    </div>
-                  </div>
-                  <svg
-                    className="w-8 h-8 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                  </svg>
-                </label>
-              </div>
-
-              {paymentMethod === 'ON_SPOT' && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> You will need to pay the full amount
-                    when you arrive to pick up the car. Please bring a valid
-                    payment method and identification.
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-800">
+                    Complete Payment
+                  </h1>
+                  <p className="text-sm text-gray-500">
+                    Secure payment powered by Stripe
                   </p>
                 </div>
+              </div>
+
+              {clientSecret && (
+                <Elements
+                  stripe={stripePromise}
+                  options={{
+                    clientSecret,
+                    appearance: {
+                      theme: 'stripe',
+                      variables: {
+                        colorPrimary: '#4f46e5',
+                        borderRadius: '12px',
+                      },
+                    },
+                  }}
+                >
+                  <CheckoutForm reservationId={reservationId} />
+                </Elements>
               )}
+
+              <div className="mt-8 pt-6 border-t">
+                <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg">
+                  <svg
+                    className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">
+                      Secure Payment
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Your payment information is encrypted and secure. We never
+                      store your card details.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* RIGHT SIDE - SUMMARY */}
-          <div className="bg-white rounded-2xl shadow p-6 h-fit sticky top-10">
-            <h3 className="text-xl font-semibold mb-6 text-gray-500">
-              Reservation Summary
-            </h3>
+          {/* Right Side - Reservation Summary */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-800">
+                Reservation Summary
+              </h3>
 
-            {!selectedStartDate && (
-              <p className="text-gray-500 text-sm">
-                Select dates to see pricing details.
-              </p>
-            )}
+              {/* Car Image */}
+              {reservation.carImage && (
+                <div className="mb-4 rounded-lg overflow-hidden">
+                  <img
+                    src={reservation.carImage}
+                    alt={`${reservation.carMake} ${reservation.carModel}`}
+                    className="w-full h-32 object-cover"
+                  />
+                </div>
+              )}
 
-            {selectedStartDate && selectedEndDate && (
-              <>
-                <div className="space-y-3 text-lg">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 font-bold">Pick-up:</span>
-                    <span className="text-gray-500">
-                      {selectedStartDate.toLocaleDateString()}
-                    </span>
+              <div className="space-y-3 mb-6">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">
+                    Vehicle
+                  </p>
+                  <p className="font-semibold text-gray-800">
+                    {reservation.carMake} {reservation.carModel}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">
+                      Pick-up
+                    </p>
+                    <p className="font-medium text-sm text-gray-800">
+                      {new Date(reservation.startDate).toLocaleDateString(
+                        'en-US',
+                        {
+                          month: 'short',
+                          day: 'numeric',
+                        },
+                      )}
+                    </p>
                   </div>
 
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 font-bold">Drop-off:</span>
-                    <span className="text-gray-500">
-                      {selectedEndDate.toLocaleDateString()}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 font-bold">Days:</span>
-                    <span className="text-gray-500">{days}</span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 font-bold">Payment:</span>
-                    <span className="text-gray-500">
-                      {paymentMethod === 'CARD' ? 'Online Card' : 'On-Site'}
-                    </span>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">
+                      Drop-off
+                    </p>
+                    <p className="font-medium text-sm text-gray-800">
+                      {new Date(reservation.endDate).toLocaleDateString(
+                        'en-US',
+                        {
+                          month: 'short',
+                          day: 'numeric',
+                        },
+                      )}
+                    </p>
                   </div>
                 </div>
 
-                <div className="border-t my-6" />
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">
+                    Duration
+                  </p>
+                  <p className="font-medium text-gray-800">
+                    {reservation.days} {reservation.days === 1 ? 'day' : 'days'}
+                  </p>
+                </div>
+              </div>
 
-                <div className="flex justify-between text-lg font-bold">
-                  <span className="text-gray-500">Total:</span>
-                  <span className="text-indigo-600">${total.toFixed(2)}</span>
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">
+                    €{reservation.pricePerDay} × {reservation.days} days
+                  </span>
+                  <span className="text-gray-800">
+                    €{reservation.totalAmount.toFixed(2)}
+                  </span>
                 </div>
 
-                {error && (
-                  <div className="mt-4 text-red-600 text-sm">{error}</div>
-                )}
+                <div className="flex justify-between items-center text-lg font-bold pt-2 border-t">
+                  <span className="text-gray-800">Total</span>
+                  <span className="text-indigo-600">
+                    €{reservation.totalAmount.toFixed(2)}
+                  </span>
+                </div>
+              </div>
 
-                <button
-                  onClick={handleContinue}
-                  disabled={submitting}
-                  className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 disabled:bg-gray-400"
-                >
-                  {submitting
-                    ? 'Processing...'
-                    : paymentMethod === 'CARD'
-                      ? 'Continue to Payment'
-                      : 'Confirm Reservation'}
-                </button>
-              </>
-            )}
+              <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <p className="text-xs text-blue-800">
+                  ✓ You will receive a confirmation email after successful
+                  payment
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

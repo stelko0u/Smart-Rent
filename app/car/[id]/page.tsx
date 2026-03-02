@@ -20,7 +20,7 @@ export default function CarDetailPage() {
   const [loading, setLoading] = useState(true);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   useEffect(() => {
     if (!carId) return;
 
@@ -177,7 +177,7 @@ export default function CarDetailPage() {
               </div>
             )}
             <button
-              onClick={() => router.push(`/payment/${car.id}`)}
+              onClick={() => router.push(`/reservation/${car.id}`)}
               className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition"
             >
               Reserve Now

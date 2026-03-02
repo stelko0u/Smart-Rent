@@ -1,113 +1,99 @@
-// import { NextResponse } from 'next/server';
-// import jwt, { JwtPayload } from 'jsonwebtoken';
-// import {
-//   ReservationRepository,
-//   UserRepository,
-// } from '../../../lib/repositories';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthUser } from '@/app/lib/auth';
+import { query } from '@/app/lib/db';
+import { stripe } from '@/app/lib/stripe';
 
-// const JWT_SECRET = process.env.JWT_SECRET;
-// const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
-// const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+export async function POST(req: NextRequest) {
+  try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-// function getTokenFromRequest(req: Request) {
-//   const auth = req.headers.get('authorization');
-//   if (auth?.startsWith('Bearer ')) return auth.substring(7).trim();
-//   const cookieHeader = req.headers.get('cookie') || '';
-//   const match = cookieHeader.match(
-//     new RegExp(`(^|;\\s*)${COOKIE_NAME}=([^;]+)`),
-//   );
-//   return match ? decodeURIComponent(match[2]) : null;
-// }
+    const body = await req.json();
+    const { reservationId } = body;
 
-// async function getUserFromToken(req: Request) {
-//   if (!JWT_SECRET) return null;
-//   const token = getTokenFromRequest(req);
-//   if (!token) return null;
+    if (!reservationId) {
+      return NextResponse.json(
+        { error: 'Missing reservationId' },
+        { status: 400 },
+      );
+    }
 
-//   try {
-//     const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
-//     const userId = Number(payload.userId ?? payload.sub);
-//     if (!userId || isNaN(userId)) return null;
+    console.log('💰 Creating payment intent for reservation:', reservationId);
 
-//     const user = await UserRepository.findById(userId);
-//     return user;
-//   } catch (err) {
-//     return null;
-//   }
-// }
+    // Get reservation with car price
+    const rows = await query(
+      `SELECT 
+        r.*,
+        c."pricePerDay"
+      FROM "Reservation" r 
+      JOIN "Car" c ON r."carId" = c.id 
+      WHERE r.id = $1 AND r."userId" = $2`,
+      [reservationId, user.id],
+    );
 
-// export async function POST(req: Request) {
-//   try {
-//     const user = await getUserFromToken(req);
-//     if (!user) {
-//       return NextResponse.json(
-//         { ok: false, error: 'Unauthorized' },
-//         { status: 401 },
-//       );
-//     }
+    if (rows.length === 0) {
+      console.log('❌ Reservation not found');
+      return NextResponse.json(
+        { error: 'Reservation not found' },
+        { status: 404 },
+      );
+    }
 
-//     const body = await req.json();
-//     const { reservationId } = body;
+    const reservation = rows[0];
 
-//     if (!reservationId) {
-//       return NextResponse.json(
-//         { ok: false, error: 'Reservation ID required' },
-//         { status: 400 },
-//       );
-//     }
+    // Calculate days (+1 to include both start and end date)
+    const start = new Date(reservation.startDate);
+    const end = new Date(reservation.endDate);
+    const days =
+      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-//     const reservation = await ReservationRepository.findById(
-//       Number(reservationId),
-//     );
+    // Calculate total
+    const pricePerDay = parseFloat(reservation.pricePerDay);
+    const totalAmount = days * pricePerDay;
 
-//     if (!reservation) {
-//       return NextResponse.json(
-//         { ok: false, error: 'Reservation not found' },
-//         { status: 404 },
-//       );
-//     }
+    console.log('📊 Payment calculation:', {
+      days,
+      pricePerDay,
+      totalAmount,
+      startDate: reservation.startDate,
+      endDate: reservation.endDate,
+    });
 
-//     if (reservation.userId !== user.id) {
-//       return NextResponse.json(
-//         { ok: false, error: 'Unauthorized' },
-//         { status: 403 },
-//       );
-//     }
+    // Stripe expects amount in cents
+    const amountInCents = Math.round(totalAmount * 100);
 
-//     if (reservation.paymentStatus === 'PAID') {
-//       return NextResponse.json(
-//         { ok: false, error: 'Reservation already paid' },
-//         { status: 400 },
-//       );
-//     }
+    console.log('💳 Creating Stripe PaymentIntent:', {
+      amount: amountInCents,
+      currency: 'eur',
+      reservationId,
+    });
 
-//     // Stripe интеграция (ако имате Stripe)
-//     if (STRIPE_SECRET_KEY) {
-//       // TODO: Имплементация с реален Stripe
-//       // const stripe = require('stripe')(STRIPE_SECRET_KEY);
-//       // const paymentIntent = await stripe.paymentIntents.create({
-//       //   amount: Math.round(reservation.totalPrice * 100),
-//       //   currency: 'bgn',
-//       //   metadata: { reservationId: reservation.id },
-//       // });
+    // Create Stripe PaymentIntent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInCents,
+      currency: 'eur',
+      metadata: {
+        reservationId: String(reservationId),
+        userId: String(user.id),
+      },
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
 
-//       // За момента връщаме mock данни
-//       return NextResponse.json({
-//         ok: true,
-//         clientSecret: 'mock_client_secret_' + reservation.id,
-//         amount: reservation.totalPrice,
-//       });
-//     }
+    console.log('✅ PaymentIntent created:', paymentIntent.id);
 
-//     return NextResponse.json(
-//       { ok: false, error: 'Payment service not configured' },
-//       { status: 500 },
-//     );
-//   } catch (err) {
-//     console.error('POST /api/payments/create-intent error:', err);
-//     return NextResponse.json(
-//       { ok: false, error: 'Server error' },
-//       { status: 500 },
-//     );
-//   }
-// }
+    return NextResponse.json({
+      clientSecret: paymentIntent.client_secret,
+      amount: totalAmount,
+    });
+  } catch (error: any) {
+    console.error('❌ create-intent error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to create payment intent' },
+      { status: 500 },
+    );
+  }
+}
