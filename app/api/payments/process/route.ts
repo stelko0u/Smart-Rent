@@ -9,31 +9,35 @@ export async function POST(req: Request) {
     if (!reservationId || !paymentMethodId) {
       return NextResponse.json(
         { error: 'Reservation ID and Payment Method are required' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Get reservation details
-    const reservation = await reservationService.getById(reservationId) as any;
+    const reservation = (await reservationService.getById(
+      reservationId,
+    )) as any;
 
     if (!reservation) {
       return NextResponse.json(
         { error: 'Reservation not found' },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     if (reservation.status !== 'CONFIRMED') {
       return NextResponse.json(
         { error: 'Only confirmed reservations can be paid' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Calculate total amount
     const startDate = new Date(reservation.startDate);
     const endDate = new Date(reservation.endDate);
-    const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const days = Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
     const totalAmount = days * reservation.car_price;
 
     try {
@@ -45,13 +49,13 @@ export async function POST(req: Request) {
         confirm: true,
         metadata: {
           reservationId: reservationId.toString(),
-        userId: reservation.userId.toString(),
-        carId: reservation.carId.toString(),
-        totalAmount: totalAmount.toString(),
-        days: days.toString(),
-        pricePerDay: reservation.car_price.toString(),
-        currency: 'usd'
-        }
+          userId: reservation.userId.toString(),
+          carId: reservation.carId.toString(),
+          totalAmount: totalAmount.toString(),
+          days: days.toString(),
+          pricePerDay: reservation.car_price.toString(),
+          currency: 'usd',
+        },
       });
 
       // Update reservation with payment details
@@ -62,7 +66,7 @@ export async function POST(req: Request) {
         reservationId,
         amount: totalAmount,
         days,
-        pricePerDay: reservation.car_price
+        pricePerDay: reservation.car_price,
       });
 
       return NextResponse.json({
@@ -71,22 +75,21 @@ export async function POST(req: Request) {
         reservation: {
           ...reservation,
           status: 'COMPLETED',
-          paymentIntentId: paymentIntent.id
-        }
+          paymentIntentId: paymentIntent.id,
+        },
       });
-
     } catch (error: any) {
       console.error('Payment processing error:', error);
       return NextResponse.json(
         { error: error.message || 'Payment failed' },
-        { status: 500 }
+        { status: 500 },
       );
     }
   } catch (error: any) {
     console.error('Payment processing error:', error);
     return NextResponse.json(
       { error: error.message || 'Payment failed' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

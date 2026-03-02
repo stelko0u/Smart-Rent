@@ -24,7 +24,7 @@ export default function DeleteCarModal({ isOpen, onClose, onConfirm }: Props) {
       }}
       className="bg-white/80 rounded-xl p-6 w-full max-w-lg shadow-xl outline-none"
     >
-      <p className="text-lg">
+      <p className="text-lg text-gray-500">
         Are you sure you want to delete this car? This action cannot be undone.
       </p>
 
@@ -32,7 +32,10 @@ export default function DeleteCarModal({ isOpen, onClose, onConfirm }: Props) {
         <button className="px-3 py-1 bg-gray-200 rounded" onClick={onClose}>
           Cancel
         </button>
-        <button className="px-3 py-1 bg-red-600 text-white rounded hover:shadow-lg ">
+        <button
+          className="px-3 py-1 bg-red-600 text-white rounded hover:shadow-lg "
+          onClick={onConfirm}
+        >
           Delete
         </button>
       </div>

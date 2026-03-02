@@ -1,10 +1,16 @@
 export { default as AngleLeft } from "./AngleLeft";
 export { default as AngleRight } from "./AngleRight";
+export { default as ArrowLeftFromBracket } from "./ArrowLeftFromBracket";
 export { default as Car } from "./Car";
+export { default as Clipboard } from "./Clipboard";
 export { default as Cube } from "./Cube";
 export { default as EmptyStar } from "./EmptyStar";
 export { default as Engine } from "./Engine";
 export { default as FullStar } from "./FullStar";
 export { default as GasPump } from "./GasPump";
+export { default as Heart } from "./Heart";
+export { default as House } from "./House";
 export { default as MagnifyingGlassPlus } from "./MagnifyingGlassPlus";
 export { default as Transmission } from "./Transmission";
+export { default as User } from "./User";
+export { default as Xmark } from "./Xmark";

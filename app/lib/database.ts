@@ -27,7 +27,6 @@ export class DatabaseService {
       const duration = Date.now() - start;
 
       // SHOW IN CONSOLE WHAT QUERY WAS EXECUTED
-      // console.log('Executed query', { text, duration, rows: result.rowCount });
       return result.rows;
     } catch (error) {
       console.error('Database query error', { text, error });

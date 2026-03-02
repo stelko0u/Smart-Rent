@@ -5,12 +5,12 @@ export interface Car {
   year: number;
   pricePerDay: number;
   images?: string[];
-  officeId?: number | null;
+  officeId?: number;
   companyId?: number;
   ownerId?: number;
-  carType?: string;
-  transmissionType?: string;
-  fuelType?: string;
+  carType?: CarType;
+  transmissionType?: TransmissionType;
+  fuelType?: FuelType;
   createdAt?: string;
   updatedAt?: string;
   company?: Company;
@@ -38,9 +38,13 @@ export type CarType =
   | 'WAGON'
   | 'VAN'
   | 'PICKUP'
+  | 'CABRIO'
+  | 'COMBI'
   | 'OTHER';
 
-export type TransmissionType = 'MANUAL' | 'AUTOMATIC' | 'OTHER';
+export type TransmissionType = 'MANUAL' | 'AUTOMATIC' | 'SEMI_AUTOMATIC' | 'OTHER';
+
+export type FuelType = 'PETROL' | 'DIESEL' | 'ELECTRICITY';
 
 // types/index.ts
 export interface Company {

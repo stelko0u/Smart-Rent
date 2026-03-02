@@ -1,18 +1,65 @@
-import React from 'react';
-import { Car } from './CompanyDashboard';
-import Link from 'next/dist/client/link';
+import React, { useState } from 'react';
+import { Car } from '@/app/types/database';
+import EditCarModal from '../modals/EditCarModal';
+import DeleteCarModal from '../modals/DeleteCarModal';
+import { toast } from 'react-hot-toast';
 
 export default function ManageCars({
   cars,
-  onEdit,
-  onDelete,
-  onDetails,
+  onRefresh,
 }: {
   cars: Car[];
-  onEdit?: (id: number) => void;
-  onDelete?: (id: number) => void;
-  onDetails?: (id: number) => void;
+  onRefresh?: () => void;
 }) {
+  const [editCarId, setEditCarId] = useState<number | null>(null);
+  const [deleteCarId, setDeleteCarId] = useState<number | null>(null);
+
+  const handleEdit = (id: number) => {
+    setEditCarId(id);
+  };
+
+  const handleDelete = (id: number) => {
+    setDeleteCarId(id);
+  };
+
+  const handleDetails = (id: number) => {
+    window.location.href = `/car/${id}`;
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteCarId) return;
+
+    try {
+      const res = await fetch(`/api/company/cars?id=${deleteCarId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        toast.error(error.error || 'Failed to delete car');
+        setDeleteCarId(null);
+        return;
+      }
+
+      toast.success('Car deleted successfully');
+      setDeleteCarId(null);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error deleting car:', error);
+      toast.error('Failed to delete car');
+      setDeleteCarId(null);
+    }
+  };
+
+  const handleEditSuccess = () => {
+    toast.success('Car updated successfully');
+    setEditCarId(null);
+    onRefresh?.();
+  };
+
+  const selectedCar = cars.find((c) => c.id === editCarId);
+
   return (
     <section>
       <h2 className="text-xl font-medium mb-4 text-gray-600">Manage cars</h2>
@@ -45,29 +92,28 @@ export default function ManageCars({
                   {c.year} — {c.pricePerDay}€ / per day
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  {c.companyId ?? ''}
+                  {c.carType} • {c.transmissionType} • {c.fuelType}
                 </div>
               </div>
 
               <div className="flex gap-2">
-                {/* <button
-                  onClick={() => onDetails?.(c.id)}
-                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded"
+                <button
+                  onClick={() => handleDetails(c.id)}
+                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded cursor-pointer hover:bg-blue-200 transition hover:scale-105"
                   aria-label={`Details ${c.make} ${c.model}`}
                 >
                   Details
-                </button> */}
-                <Link href={`/car/${c.id}`}>Details</Link>
+                </button>
                 <button
-                  onClick={() => onEdit?.(c.id)}
-                  className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded"
+                  onClick={() => handleEdit(c.id)}
+                  className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-300 transition cursor-pointer hover:scale-105"
                   aria-label={`Edit ${c.make} ${c.model}`}
                 >
                   Edit
                 </button>
                 <button
-                  onClick={() => onDelete?.(c.id)}
-                  className="px-3 py-1 bg-red-100 text-red-800 rounded"
+                  onClick={() => handleDelete(c.id)}
+                  className="px-3 py-1 bg-red-100 text-red-800 rounded cursor-pointer hover:bg-red-200 transition hover:scale-105"
                   aria-label={`Delete ${c.make} ${c.model}`}
                 >
                   Delete
@@ -76,6 +122,23 @@ export default function ManageCars({
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Edit Modal */}
+      {editCarId && selectedCar && (
+        <EditCarModal
+          car={selectedCar}
+          onClose={() => setEditCarId(null)}
+          onSuccess={handleEditSuccess}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteCarId && (
+        <DeleteCarModal
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteCarId(null)}
+        />
       )}
     </section>
   );

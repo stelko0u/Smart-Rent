@@ -3,12 +3,14 @@ import fs from 'fs';
 import path from 'path';
 import { CarRepository } from '../../../lib/repositories';
 import type {
+  Car,
   CarFormValues,
   CarType,
   TransmissionType,
+  FuelType,
 } from '../../../types/types';
-
-type FuelType = 'PETROL' | 'DIESEL' | 'ELECTRICITY';
+import { query } from '@/app/lib/db';
+import { getAuthUser } from '@/app/lib/auth';
 
 export const runtime = 'nodejs';
 
@@ -37,7 +39,6 @@ async function fetchMe(req: NextRequest) {
   return meRes;
 }
 
-// Map to Prisma string enum literals
 function mapCarType(input?: string | null): CarType | null {
   if (!input) return null;
   const v = input.toString().trim().toLowerCase();
@@ -121,6 +122,8 @@ export async function POST(req: NextRequest) {
     let carType: CarType | null = null;
     let transmissionType: TransmissionType | null = null;
     let fuelType: FuelType | null = null;
+    let power: number | null = null;
+    let displacement: number | null = null;
     let officeId: number | null = null;
 
     if (contentType.includes('multipart/form-data')) {
@@ -129,6 +132,8 @@ export async function POST(req: NextRequest) {
       model = String(form.get('model') ?? '').trim();
       year = Number(form.get('year') ?? new Date().getFullYear());
       pricePerDay = Number(form.get('pricePerDay') ?? 0);
+      power = Number(form.get('power') ?? 0);
+      displacement = Number(form.get('displacement') ?? 0);
 
       carType = mapCarType(form.get('carType')?.toString() ?? null);
       transmissionType = mapTransmissionType(
@@ -178,6 +183,10 @@ export async function POST(req: NextRequest) {
       model = String(body?.model ?? '').trim();
       year = body?.year ? Number(body.year) : new Date().getFullYear();
       pricePerDay = body?.pricePerDay ? Number(body.pricePerDay) : 0;
+      power = (body as any)?.power ? Number((body as any).power) : 0;
+      displacement = (body as any)?.displacement
+        ? Number((body as any).displacement)
+        : 0;
 
       carType = mapCarType((body as any)?.carType ?? null);
       transmissionType =
@@ -232,12 +241,30 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    if (!power || Number.isNaN(Number(power)) || Number(power) <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid power (HP)' },
+        { status: 400 },
+      );
+    }
+    if (
+      !displacement ||
+      Number.isNaN(Number(displacement)) ||
+      Number(displacement) <= 0
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid displacement (cc)' },
+        { status: 400 },
+      );
+    }
 
-const created = await CarRepository.create({
+    const created = await CarRepository.create({
       make,
       model,
       year: Number(year),
       pricePerDay: Number(pricePerDay),
+      power: Number(power),
+      displacement: Number(displacement),
       images,
       ownerId: Number(ownerId),
       companyId: Number(companyId),
@@ -254,6 +281,8 @@ const created = await CarRepository.create({
       model: created.model,
       year: created.year,
       pricePerDay: created.pricePerDay,
+      power: created.power,
+      displacement: created.displacement,
       images: created.images,
       carType: created.carType,
       transmissionType: created.transmissionType,
@@ -276,11 +305,154 @@ const created = await CarRepository.create({
 // GET handler
 export async function GET(req: NextRequest) {
   try {
-const cars = await CarRepository.findMany();
+    const cars = await CarRepository.findMany();
 
     return NextResponse.json({ cars }, { status: 200 });
   } catch (err) {
     console.error('company/cars GET error:', err);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getAuthUser();
+    if (!user || user.role !== 'COMPANY') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Car ID is required' },
+        { status: 400 },
+      );
+    }
+
+    const carId = parseInt(id);
+
+    // Check if car belongs to the company
+    const car = await CarRepository.findById(carId);
+
+    if (!car || car.companyId !== user.companyId) {
+      return NextResponse.json(
+        { error: 'Car not found or unauthorized' },
+        { status: 404 },
+      );
+    }
+
+    // Check if car has any reservations
+    const reservations = await query(
+      'SELECT COUNT(*) as count FROM "Reservation" WHERE "carId" = $1',
+      [carId],
+    );
+
+    if (parseInt(reservations[0].count) > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete car with existing reservations' },
+        { status: 400 },
+      );
+    }
+
+    await CarRepository.delete(carId);
+
+    return NextResponse.json({ message: 'Car deleted successfully' });
+  } catch (error) {
+    console.error('DELETE /api/company/cars error:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete car' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const meRes = await fetchMe(req);
+    if (!meRes.ok) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const me = await meRes.json();
+    const rawRole = me?.role ?? me?.user?.role ?? null;
+    const role =
+      typeof rawRole === 'string' ? rawRole.toLowerCase().trim() : null;
+
+    if (role !== 'company') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const companyId = me?.company?.id ?? me?.user?.companyId ?? null;
+    const ownerId = me?.user?.id ?? null;
+
+    if (!companyId || !ownerId) {
+      return NextResponse.json(
+        { error: 'Missing company or owner id' },
+        { status: 400 },
+      );
+    }
+
+    // Get car ID from query params
+    const { searchParams } = new URL(req.url);
+    const carId = searchParams.get('id');
+
+    if (!carId) {
+      return NextResponse.json({ error: 'Missing car ID' }, { status: 400 });
+    }
+
+    // Verify car belongs to this company
+    const existingCar = await CarRepository.findById(Number(carId));
+    if (!existingCar) {
+      return NextResponse.json({ error: 'Car not found' }, { status: 404 });
+    }
+
+    if (existingCar.companyId !== companyId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    // Parse request body
+    const body = await req.json();
+
+    // Prepare update data with proper typing
+    const updateData: Partial<Omit<Car, 'id' | 'createdAt' | 'updatedAt'>> = {};
+
+    if (body.make !== undefined) updateData.make = String(body.make).trim();
+    if (body.model !== undefined) updateData.model = String(body.model).trim();
+    if (body.year !== undefined) updateData.year = Number(body.year);
+    if (body.pricePerDay !== undefined)
+      updateData.pricePerDay = Number(body.pricePerDay);
+    if (body.power !== undefined) updateData.power = Number(body.power);
+    if (body.displacement !== undefined)
+      updateData.displacement = Number(body.displacement);
+    if (body.carType !== undefined) updateData.carType = body.carType;
+    if (body.transmissionType !== undefined)
+      updateData.transmissionType = body.transmissionType;
+    if (body.fuelType !== undefined) updateData.fuelType = body.fuelType;
+
+    // Handle officeId - convert null to undefined
+    if (body.officeId !== undefined) {
+      updateData.officeId =
+        body.officeId === null ? undefined : Number(body.officeId);
+    }
+
+    // Update the car
+    const updated = await CarRepository.update(Number(carId), updateData);
+
+    if (!updated) {
+      return NextResponse.json(
+        { error: 'Failed to update car' },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ car: updated }, { status: 200 });
+  } catch (err) {
+    console.error('company/cars PATCH error:', err);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

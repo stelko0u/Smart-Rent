@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import ReactModal from 'react-modal';
 
 type User = {
   id: string | number;
@@ -20,6 +21,9 @@ export default function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState<number | string | null>(
     null,
   );
+  const [showBanModal, setShowBanModal] = useState(false);
+  const [banUserId, setBanUserId] = useState<number | string | null>(null);
+  const [banReason, setBanReason] = useState('');
 
   useEffect(() => {
     load();
@@ -52,15 +56,57 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function handleBan(id: number | string, currentlyBanned: boolean) {
-    const action = currentlyBanned ? 'unban' : 'ban';
-    let reason = null;
+  function openBanModal(id: number | string) {
+    setBanUserId(id);
+    setBanReason('');
+    setShowBanModal(true);
+  }
 
-    if (!currentlyBanned) {
-      reason = prompt('Enter ban reason (optional):');
-      if (reason === null) return; // User cancelled
+  function closeBanModal() {
+    setShowBanModal(false);
+    setBanUserId(null);
+    setBanReason('');
+  }
+
+  async function confirmBan() {
+    if (banReason.length < 0 || banReason.length > 500) {
+      setError('Ban reason must be between 0 and 500 characters');
+      setActionLoading(null);
+      return;
     }
+    if (banUserId === null) return;
+    setShowBanModal(false);
+    setActionLoading(banUserId);
+    setError(null);
 
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: banUserId,
+          action: 'ban',
+          reason: banReason || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data?.error || 'Failed to ban user');
+      }
+
+      await load();
+    } catch (err: any) {
+      setError(err.message || 'Failed to ban user');
+    } finally {
+      setActionLoading(null);
+      setBanUserId(null);
+      setBanReason('');
+    }
+  }
+
+  async function handleUnban(id: number | string) {
     setActionLoading(id);
     setError(null);
 
@@ -69,17 +115,17 @@ export default function AdminUsersPage() {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, action, reason }),
+        body: JSON.stringify({ id, action: 'unban' }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data?.error || `Failed to ${action} user`);
+        throw new Error(data?.error || 'Failed to unban user');
       }
 
       await load();
     } catch (err: any) {
-      setError(err.message || `Failed to ${action} user`);
+      setError(err.message || 'Failed to unban user');
     } finally {
       setActionLoading(null);
     }
@@ -201,7 +247,9 @@ export default function AdminUsersPage() {
                             <>
                               <button
                                 onClick={() =>
-                                  handleBan(u.id, u.banned || false)
+                                  u.banned
+                                    ? handleUnban(u.id)
+                                    : openBanModal(u.id)
                                 }
                                 disabled={actionLoading === u.id}
                                 className={`px-3 py-1 rounded text-sm font-medium ${
@@ -241,6 +289,54 @@ export default function AdminUsersPage() {
             <p>No users found.</p>
           )}
         </>
+      )}
+
+      {showBanModal && (
+        <ReactModal
+          isOpen={showBanModal}
+          onRequestClose={closeBanModal}
+          className="bg-white rounded-lg p-2 max-w-lg w-full relative z-50 flex items-center justify-center"
+          overlayClassName="fixed inset-0 bg-black/50 z-40 flex items-center justify-center"
+          ariaHideApp={false}
+          shouldCloseOnOverlayClick={true}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-semibold mb-4 text-gray-500">
+              Ban User
+            </h2>
+            <div className="mb-4">
+              <label
+                htmlFor="banReason"
+                className="block text-sm font-medium text-gray-800 mb-2"
+              >
+                Ban Reason (optional)
+              </label>
+              <textarea
+                id="banReason"
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                className="w-full text-gray-500 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                rows={4}
+                placeholder="Enter reason for banning this user..."
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={closeBanModal}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmBan}
+                className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                disabled={banReason.length <= 0 || banReason.length > 500}
+              >
+                Ban User
+              </button>
+            </div>
+          </div>
+        </ReactModal>
       )}
     </div>
   );

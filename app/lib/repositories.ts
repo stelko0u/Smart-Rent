@@ -235,6 +235,13 @@ export class CarRepository {
     const result = await query('DELETE FROM "Car" WHERE id = $1', [id]);
     return result.length > 0;
   }
+  static async hasReservations(carId: number): Promise<boolean> {
+    const result = await query<{ count: string }>(
+      'SELECT COUNT(*) as count FROM "Reservation" WHERE "carId" = $1',
+      [carId],
+    );
+    return parseInt(result[0]?.count || '0', 10) > 0;
+  }
 }
 
 export class ReservationRepository {

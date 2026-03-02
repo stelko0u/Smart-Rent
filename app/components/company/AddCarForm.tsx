@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
+import CarImageCropper from './CarImageCropper';
 
 export default function AddCarForm({
   onCreated,
@@ -10,14 +11,22 @@ export default function AddCarForm({
   const [model, setModel] = useState('');
   const [year, setYear] = useState<number | ''>('');
   const [pricePerDay, setPricePerDay] = useState<number | ''>('');
+  const [power, setPower] = useState<number | ''>('');
+  const [displacement, setDisplacement] = useState<number | ''>('');
   const [carType, setCarType] = useState<string | ''>('');
   const [transmission, setTransmission] = useState<string | ''>('');
-  const [fuelType, setFuelType] = useState<string | ''>(''); // New state for fuel type
+  const [fuelType, setFuelType] = useState<string | ''>('');
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offices, setOffices] = useState<any[]>([]);
   const [officeId, setOfficeId] = useState<number | ''>('');
+  const [currentImageToCrop, setCurrentImageToCrop] = useState<string | null>(
+    null,
+  );
+  const [currentImageFile, setCurrentImageFile] = useState<File | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
+
   const MAX_FILES = 12;
   const ALLOWED = ['image/png', 'image/jpeg'];
 
@@ -28,8 +37,13 @@ export default function AddCarForm({
           URL.revokeObjectURL((f as any).__preview);
         } catch {}
       });
+      if (currentImageToCrop) {
+        try {
+          URL.revokeObjectURL(currentImageToCrop);
+        } catch {}
+      }
     };
-  }, [files]);
+  }, [files, currentImageToCrop]);
 
   const onDrop = (accepted: File[], rejected: any[]) => {
     setError(null);
@@ -42,10 +56,55 @@ export default function AddCarForm({
       return;
     }
     const valid = accepted.filter((f) => ALLOWED.includes(f.type));
-    valid.forEach((f) => {
-      (f as any).__preview = URL.createObjectURL(f);
-    });
-    setFiles((s) => [...s, ...valid]);
+
+    // Open cropper for the first valid image
+    if (valid.length > 0) {
+      const imageUrl = URL.createObjectURL(valid[0]);
+      setCurrentImageFile(valid[0]);
+      setCurrentImageToCrop(imageUrl);
+      setShowCropper(true);
+    }
+  };
+
+  const handleCropSave = async (croppedImageDataUrl: string) => {
+    // Convert base64 data URL to Blob
+    const response = await fetch(croppedImageDataUrl);
+    const blob = await response.blob();
+
+    // Convert blob to File
+    const croppedFile = new File(
+      [blob],
+      currentImageFile?.name || 'cropped-image.jpg',
+      { type: 'image/jpeg' },
+    );
+
+    // Create preview URL
+    (croppedFile as any).__preview = URL.createObjectURL(croppedFile);
+
+    // Add to files array
+    setFiles((s) => [...s, croppedFile]);
+
+    // Cleanup and close cropper
+    if (currentImageToCrop) {
+      try {
+        URL.revokeObjectURL(currentImageToCrop);
+      } catch {}
+    }
+    setCurrentImageToCrop(null);
+    setCurrentImageFile(null);
+    setShowCropper(false);
+  };
+
+  const handleCropCancel = () => {
+    // Cleanup URL
+    if (currentImageToCrop) {
+      try {
+        URL.revokeObjectURL(currentImageToCrop);
+      } catch {}
+    }
+    setCurrentImageToCrop(null);
+    setCurrentImageFile(null);
+    setShowCropper(false);
   };
 
   useEffect(() => {
@@ -76,25 +135,40 @@ export default function AddCarForm({
 
     try {
       if (!make.trim() || !model.trim() || !year || !pricePerDay) {
-        throw new Error('Попълни марка, модел, година и цена на ден.');
+        throw new Error('Please fill in make, model, year and price per day.');
       }
+      if (!power || !displacement) {
+        throw new Error('Please fill in power (HP) and displacement (cc).');
+      }
+      if (!carType || !transmission || !fuelType) {
+        throw new Error('Please fill in car type, transmission and fuel type.');
+      }
+
       const currentYear = new Date().getFullYear();
       if (typeof year === 'number' && (year < 1980 || year > currentYear)) {
-        throw new Error(`Годината трябва да е между 1980 и ${currentYear}.`);
+        throw new Error(`The year must be between 1980 and ${currentYear}.`);
       }
       if (typeof pricePerDay === 'number' && pricePerDay <= 0) {
-        throw new Error('Цената трябва да е положително число.');
+        throw new Error('The price must be a positive number.');
+      }
+      if (typeof power === 'number' && power <= 0) {
+        throw new Error('The power must be a positive number.');
+      }
+      if (typeof displacement === 'number' && displacement <= 0) {
+        throw new Error('The displacement must be a positive number.');
       }
 
       const form = new FormData();
       form.append('make', make.trim());
       form.append('model', model.trim());
       form.append('year', String(year));
-      if (officeId !== '') form.append('officeId', String(officeId));
       form.append('pricePerDay', String(pricePerDay));
-      if (carType !== '') form.append('carType', carType);
-      if (transmission !== '') form.append('transmission', transmission);
-      if (fuelType !== '') form.append('fuelType', fuelType); // Append fuel type
+      form.append('power', String(power));
+      form.append('displacement', String(displacement));
+      form.append('carType', carType);
+      form.append('transmission', transmission);
+      form.append('fuelType', fuelType);
+      if (officeId !== '') form.append('officeId', String(officeId));
 
       files.forEach((f) => form.append('images', f, f.name));
 
@@ -127,9 +201,11 @@ export default function AddCarForm({
       setModel('');
       setYear('');
       setPricePerDay('');
+      setPower('');
+      setDisplacement('');
       setCarType('');
       setTransmission('');
-      setFuelType(''); // Reset fuel type
+      setFuelType('');
       setOfficeId('');
       onCreated?.(created);
     } catch (err: any) {
@@ -145,40 +221,73 @@ export default function AddCarForm({
       {error && <div className="mb-3 text-red-600">{error}</div>}
 
       <form onSubmit={submit} className="max-w-xl flex flex-col gap-3">
-        <input
-          placeholder="Make (e.g. Audi)"
-          value={make}
-          onChange={(e) => setMake(e.target.value)}
-          className="px-3 py-2 border rounded"
-          required
-        />
-        <input
-          placeholder="Model (e.g. S2)"
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="px-3 py-2 border rounded"
-          required
-        />
-        <input
-          placeholder="Year (e.g. 1994)"
-          type="number"
-          value={year === '' ? '' : String(year)}
-          onChange={(e) =>
-            setYear(e.target.value === '' ? '' : Number(e.target.value))
-          }
-          className="px-3 py-2 border rounded"
-          required
-        />
-        <input
-          placeholder="Price per day"
-          type="number"
-          value={pricePerDay === '' ? '' : String(pricePerDay)}
-          onChange={(e) =>
-            setPricePerDay(e.target.value === '' ? '' : Number(e.target.value))
-          }
-          className="px-3 py-2 border rounded"
-          required
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <input
+            placeholder="Make (e.g. Audi)"
+            value={make}
+            onChange={(e) => setMake(e.target.value)}
+            className="px-3 py-2 border rounded"
+            required
+          />
+          <input
+            placeholder="Model (e.g. S2)"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="px-3 py-2 border rounded"
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <input
+            placeholder="Year (e.g. 1994)"
+            type="number"
+            value={year === '' ? '' : String(year)}
+            onChange={(e) =>
+              setYear(e.target.value === '' ? '' : Number(e.target.value))
+            }
+            className="px-3 py-2 border rounded"
+            required
+          />
+          <input
+            placeholder="Price per day (€)"
+            type="number"
+            step="0.01"
+            value={pricePerDay === '' ? '' : String(pricePerDay)}
+            onChange={(e) =>
+              setPricePerDay(
+                e.target.value === '' ? '' : Number(e.target.value),
+              )
+            }
+            className="px-3 py-2 border rounded"
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <input
+            placeholder="Power (HP)"
+            type="number"
+            value={power === '' ? '' : String(power)}
+            onChange={(e) =>
+              setPower(e.target.value === '' ? '' : Number(e.target.value))
+            }
+            className="px-3 py-2 border rounded"
+            required
+          />
+          <input
+            placeholder="Displacement (cc)"
+            type="number"
+            value={displacement === '' ? '' : String(displacement)}
+            onChange={(e) =>
+              setDisplacement(
+                e.target.value === '' ? '' : Number(e.target.value),
+              )
+            }
+            className="px-3 py-2 border rounded"
+            required
+          />
+        </div>
 
         <select
           value={carType}
@@ -186,15 +295,20 @@ export default function AddCarForm({
             setCarType(e.target.value === '' ? '' : e.target.value)
           }
           className="px-3 py-2 border rounded"
+          required
         >
           <option value="">Select car type</option>
-          <option value="sedan">Sedan</option>
-          <option value="suv">SUV</option>
-          <option value="hatchback">Hatchback</option>
-          <option value="van">Van</option>
-          <option value="coupe">Coupe</option>
-          <option value="convertible">Convertible</option>
-          <option value="other">Other</option>
+          <option value="SEDAN">Sedan</option>
+          <option value="HATCHBACK">Hatchback</option>
+          <option value="SUV">SUV</option>
+          <option value="COUPE">Coupe</option>
+          <option value="CONVERTIBLE">Convertible</option>
+          <option value="CABRIO">Cabrio</option>
+          <option value="WAGON">Wagon</option>
+          <option value="VAN">Van</option>
+          <option value="PICKUP">Pickup</option>
+          <option value="COMBI">Combi</option>
+          <option value="OTHER">Other</option>
         </select>
 
         <select
@@ -203,11 +317,13 @@ export default function AddCarForm({
             setTransmission(e.target.value === '' ? '' : e.target.value)
           }
           className="px-3 py-2 border rounded"
+          required
         >
           <option value="">Select transmission</option>
-          <option value="manual">Manual</option>
-          <option value="automatic">Automatic</option>
-          <option value="semi-automatic">Semi-automatic</option>
+          <option value="MANUAL">Manual</option>
+          <option value="AUTOMATIC">Automatic</option>
+          <option value="SEMI_AUTOMATIC">Semi-Automatic</option>
+          <option value="OTHER">Other</option>
         </select>
 
         <select
@@ -216,11 +332,12 @@ export default function AddCarForm({
             setFuelType(e.target.value === '' ? '' : e.target.value)
           }
           className="px-3 py-2 border rounded"
+          required
         >
           <option value="">Select fuel type</option>
-          <option value="petrol">Petrol</option>
-          <option value="diesel">Diesel</option>
-          <option value="electricity">Electricity</option>
+          <option value="PETROL">Petrol</option>
+          <option value="DIESEL">Diesel</option>
+          <option value="ELECTRICITY">Electricity</option>
         </select>
 
         <select
@@ -252,6 +369,7 @@ export default function AddCarForm({
             </p>
           )}
         </div>
+
         {files.length > 0 && (
           <div className="flex flex-wrap gap-3 mt-2">
             {files.map((f, i) => (
@@ -275,16 +393,35 @@ export default function AddCarForm({
             ))}
           </div>
         )}
+
         <div className="flex gap-2">
           <button
             type="submit"
             disabled={busy}
-            className="px-4 py-2 bg-indigo-600 text-white rounded"
+            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition"
           >
-            {busy ? 'Uploading…' : 'Add'}
+            {busy ? 'Uploading…' : 'Add Car'}
           </button>
         </div>
       </form>
+
+      {showCropper && currentImageToCrop && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-auto">
+            <h3 className="text-lg font-medium mb-4">Crop Image</h3>
+            <CarImageCropper
+              image={currentImageToCrop}
+              onSave={handleCropSave}
+            />
+            <button
+              onClick={handleCropCancel}
+              className="mt-4 px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

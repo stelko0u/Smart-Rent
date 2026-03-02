@@ -1,6 +1,14 @@
 'use client';
 
-import React from 'react';
+import {
+  ArrowLeftFromBracket,
+  Clipboard,
+  EmptyStar,
+  Heart,
+  House,
+  User,
+} from '../icons';
+import { useRouter } from 'next/dist/client/components/navigation';
 
 interface User {
   id: number;
@@ -21,89 +29,37 @@ export default function ProfileSidebar({
   activeTab,
   onTabChange,
 }: Props) {
+  const router = useRouter();
+
+  const handleExitToHome = () => {
+    router.push('/');
+  };
   const menuItems = [
     {
       id: 'profile',
       label: 'Profile Settings',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-          />
-        </svg>
-      ),
+      icon: <User className="w-5 h-5" />,
     },
     {
       id: 'rentals',
       label: 'My Rentals',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-          />
-        </svg>
-      ),
+      icon: <Clipboard className="w-5 h-5" />,
     },
     {
       id: 'reviews',
       label: 'My Reviews',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-          />
-        </svg>
-      ),
+      icon: <EmptyStar className="w-5 h-5" />,
     },
     {
       id: 'favorites',
       label: 'Liked Cars',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-          />
-        </svg>
-      ),
+      icon: <Heart className="w-5 h-5" />,
     },
   ];
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
-      {/* User Info */}
-      <div className="p-6 border-b bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+      <div className="p-6 border-b bg-linear-to-br from-indigo-500 to-purple-600 text-white">
         <div className="flex items-center gap-4">
           {user.avatar ? (
             <img
@@ -130,7 +86,6 @@ export default function ProfileSidebar({
         </div>
       </div>
 
-      {/* Menu Items */}
       <nav className="p-2">
         {menuItems.map((item) => (
           <button
@@ -139,13 +94,20 @@ export default function ProfileSidebar({
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition mb-1 ${
               activeTab === item.id
                 ? 'bg-indigo-50 text-indigo-600 font-medium'
-                : 'text-gray-700 hover:bg-gray-50'
+                : 'text-gray-700 hover:bg-gray-50 cursor-pointer'
             }`}
           >
             {item.icon}
             <span>{item.label}</span>
           </button>
         ))}
+        <button
+          onClick={handleExitToHome}
+          className="w-full flex items-center gap-3 px-4 py-3 transition mb-1 text-gray-700 hover:bg-gray-50 mt-2 border-t border-amber-600 pt-3 cursor-pointer"
+        >
+          <ArrowLeftFromBracket className="w-5 h-5" />
+          <span>Back to Home</span>
+        </button>
       </nav>
     </div>
   );
