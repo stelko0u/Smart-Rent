@@ -5,7 +5,9 @@ import dynamic from 'next/dynamic';
 // Dynamically import the map component to avoid SSR issues
 const MapComponent = dynamic(() => import('./MapComponent'), {
   ssr: false,
-  loading: () => <div style={{ height: 400, width: '100%' }}>Loading map...</div>
+  loading: () => (
+    <div style={{ height: 400, width: '100%' }}>Loading map...</div>
+  ),
 });
 
 export default function CompanyOffices({ companyId }: { companyId: number }) {
@@ -81,7 +83,7 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
 
   return (
     <section>
-      <h2 className="text-xl font-medium mb-4">Offices</h2>
+      <h2 className="text-xl font-medium mb-4 text-gray-600">Offices</h2>
       <div className="flex gap-6">
         <div className="w-1/3">
           <button
@@ -92,18 +94,18 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
           </button>
           {offices.map((o) => (
             <div key={o.id} className="p-2 border rounded mb-2">
-              <div className="font-semibold">{o.name ?? `Office #${o.id}`}</div>
-              <div className="text-sm">{o.address}</div>
+              <div className="font-semibold text-gray-700">{o.name ?? `Office #${o.id}`}</div>
+              <div className="text-sm text-gray-600">{o.address}</div>
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={() => startEdit(o)}
-                  className="px-2 py-1 bg-yellow-200 rounded"
+                  className="px-2 py-1 bg-yellow-600 rounded"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => del(o.id)}
-                  className="px-2 py-1 bg-red-200 rounded"
+                  className="px-2 py-1 bg-red-600 rounded"
                 >
                   Delete
                 </button>
@@ -112,7 +114,7 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
           ))}
         </div>
 
-<div className="flex-1">
+        <div className="flex-1">
           <MapComponent
             offices={offices}
             editing={editing}
@@ -123,21 +125,25 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
 
           {editing && (
             <div className="mt-3">
+              <label htmlFor="office-name" className="block text-sm font-medium text-gray-700 mb-1">
+                Office Name
+              </label>
               <input
                 value={editing.name}
                 onChange={(e) =>
                   setEditing({ ...editing, name: e.target.value })
                 }
-                placeholder="Name"
-                className="px-3 py-2 border rounded w-full mb-2"
+                className="px-3 py-2 border rounded w-full mb-2 text-gray-600"
               />
+              <label htmlFor="office-address" className="block text-sm font-medium text-gray-700 mb-1">
+                Address
+              </label>
               <input
                 value={editing.address}
                 onChange={(e) =>
                   setEditing({ ...editing, address: e.target.value })
                 }
-                placeholder="Address"
-                className="px-3 py-2 border rounded w-full mb-2"
+                className="px-3 py-2 border rounded w-full mb-2 text-gray-600"
               />
               <div className="mb-2 text-sm text-gray-600">
                 Click on the map to set coordinates.
@@ -152,7 +158,7 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
                 </button>
                 <button
                   onClick={() => setEditing(null)}
-                  className="px-3 py-2 bg-gray-200 rounded"
+                  className="px-3 py-2 bg-gray-400 rounded"
                 >
                   Cancel
                 </button>

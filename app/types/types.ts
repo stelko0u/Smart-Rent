@@ -42,7 +42,11 @@ export type CarType =
   | 'COMBI'
   | 'OTHER';
 
-export type TransmissionType = 'MANUAL' | 'AUTOMATIC' | 'SEMI_AUTOMATIC' | 'OTHER';
+export type TransmissionType =
+  | 'MANUAL'
+  | 'AUTOMATIC'
+  | 'SEMI_AUTOMATIC'
+  | 'OTHER';
 
 export type FuelType = 'PETROL' | 'DIESEL' | 'ELECTRICITY';
 

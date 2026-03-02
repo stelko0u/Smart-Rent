@@ -1,6 +1,15 @@
 'use client';
 
 import React from 'react';
+import {
+  ArrowLeftFromBracket,
+  BadgeDollar,
+  Building,
+  Cars,
+  ChartLine,
+  Clipboard,
+  Plus,
+} from '../icons';
 
 interface CompanyInfo {
   id: number;
@@ -23,122 +32,37 @@ export default function CompanySidebar({
     {
       id: 'dashboard',
       label: 'Dashboard',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-          />
-        </svg>
-      ),
+      icon: <ChartLine className="w-5 h-5" />,
     },
     {
       id: 'reservations',
       label: 'Reservations',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-          />
-        </svg>
-      ),
+      icon: <Clipboard className="w-5 h-5" />,
     },
     {
       id: 'payments',
       label: 'Payments',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      ),
+      icon: <BadgeDollar className="w-5 h-5" />,
     },
     {
       id: 'manage-cars',
       label: 'Manage Cars',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
-          />
-        </svg>
-      ),
+      icon: <Cars className="w-5 h-5" />,
     },
     {
       id: 'add-car',
       label: 'Add Car',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-          />
-        </svg>
-      ),
+      icon: <Plus className="w-5 h-5" />,
     },
     {
       id: 'offices',
       label: 'Offices',
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-          />
-        </svg>
-      ),
+      icon: <Building className="w-5 h-5" />,
     },
   ];
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
-      {/* Company Info */}
       <div className="p-6 border-b bg-linear-to-br from-indigo-500 to-purple-600 text-white">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-white/20 border-4 border-white flex items-center justify-center shadow-lg">
@@ -164,13 +88,12 @@ export default function CompanySidebar({
         </div>
       </div>
 
-      {/* Menu Items */}
       <nav className="p-2">
         {menuItems.map((item) => (
           <button
             key={item.id}
             onClick={() => onTabChange(item.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition mb-1 ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition mb-1 hover:bg-gray-100 hover:transition hover:scale-105 cursor-pointer ${
               activeTab === item.id
                 ? 'bg-indigo-50 text-indigo-600 font-medium'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -182,25 +105,12 @@ export default function CompanySidebar({
         ))}
       </nav>
 
-      {/* Back to Site */}
-      <div className="p-4 border-t">
+      <div className="p-4 border-t border-gray-200">
         <a
           href="/"
-          className="flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 transition"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition mb-1 text-gray-600 hover:bg-gray-100 hover:transition hover:scale-105 cursor-pointer"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10 19l-7-7m0 0l7-7m-7 7h18"
-            />
-          </svg>
+          <ArrowLeftFromBracket className="w- h-5" />
           Back to Site
         </a>
       </div>
