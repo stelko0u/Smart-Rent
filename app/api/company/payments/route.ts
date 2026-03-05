@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import {
-  PaymentRepository,
+  PaymentsRepository,
   UserRepository,
   CompanyRepository,
 } from '../../../lib/repositories';
@@ -32,6 +32,7 @@ async function getUserFromToken(req: Request) {
     const user = await UserRepository.findById(userId);
     return user;
   } catch (err) {
+    console.error('getUserFromToken error:', err);
     return null;
   }
 }
@@ -54,23 +55,19 @@ export async function GET(req: Request) {
       );
     }
 
-    // Get company
     const company = user.companyId
       ? await CompanyRepository.findById(user.companyId)
       : null;
 
-    if (!company && user.role === 'COMPANY') {
+    if (!company) {
       return NextResponse.json(
         { ok: false, error: 'Company not found' },
         { status: 404 },
       );
     }
 
-    // Get payments for the company
-    const payments = await PaymentRepository.findByCompany(company!.id);
-
-    // Get total earnings
-    const totalEarnings = await PaymentRepository.getTotalEarnings(company!.id);
+    const payments = await PaymentsRepository.findByCompany(company.id);
+    const totalEarnings = await PaymentsRepository.getTotalEarnings(company.id);
 
     return NextResponse.json({
       ok: true,
@@ -80,7 +77,14 @@ export async function GET(req: Request) {
   } catch (err) {
     console.error('GET /api/company/payments error:', err);
     return NextResponse.json(
-      { ok: false, error: 'Server error' },
+      {
+        ok: false,
+        error: 'Server error',
+        details:
+          process.env.NODE_ENV === 'development'
+            ? (err as Error)?.message
+            : undefined,
+      },
       { status: 500 },
     );
   }

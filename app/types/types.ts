@@ -65,6 +65,12 @@ export interface Office {
 
 export interface Reservation {
   id: number;
-  start_date: string;
-  end_date: string;
+  userId: number;
+  carId: number;
+  startDate: Date;
+  endDate: Date;
+  totalPrice: number;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  createdAt: Date;
+  updatedAt?: Date;
 }

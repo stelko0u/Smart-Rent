@@ -157,13 +157,13 @@ export default function CompanyPayments() {
                       #{payment.reservationId}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                      ${payment.amount.toFixed(2)}
+                      ${payment.amount}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
-                      -${payment.platformFee.toFixed(2)}
+                      -${payment.platformFee}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold">
-                      ${payment.companyEarnings.toFixed(2)}
+                      ${payment.companyEarnings}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {payment.paymentMethod === 'CARD'

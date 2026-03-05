@@ -1,14 +1,79 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser } from '@/app/lib/auth';
-import { query } from '@/app/lib/db';
+import { NextResponse } from 'next/server';
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import {
+  ReservationRepository,
+  CarRepository,
+  UserRepository,
+} from '../../lib/repositories';
+import { query } from '../../lib/db';
 
-export async function POST(req: NextRequest) {
+const JWT_SECRET = process.env.JWT_SECRET;
+const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
+
+function getTokenFromRequest(req: Request) {
+  const auth = req.headers.get('authorization');
+  if (auth?.startsWith('Bearer ')) return auth.substring(7).trim();
+  const cookieHeader = req.headers.get('cookie') || '';
+  const match = cookieHeader.match(
+    new RegExp(`(^|;\\s*)${COOKIE_NAME}=([^;]+)`),
+  );
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+async function getUserFromToken(req: Request) {
+  if (!JWT_SECRET) return null;
+  const token = getTokenFromRequest(req);
+  if (!token) return null;
+
   try {
-    const user = await getAuthUser();
-    console.log('📝 Creating reservation for user:', user?.id);
+    const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const userId = Number(payload.userId ?? payload.sub);
+    if (!userId || isNaN(userId)) return null;
+
+    const user = await UserRepository.findById(userId);
+    return user;
+  } catch (err) {
+    return null;
+  }
+}
+
+async function updateExpiredReservations(userId?: number) {
+  const now = new Date();
+
+  try {
+    const whereClause = userId
+      ? `WHERE "userId" = $2 AND status IN ('CONFIRMED', 'IN_PROGRESS') AND "endDate" < $1 AND "paymentStatus" = 'PAID'`
+      : `WHERE status IN ('CONFIRMED', 'IN_PROGRESS') AND "endDate" < $1 AND "paymentStatus" = 'PAID'`;
+
+    const params = userId ? [now, userId] : [now];
+
+    const result = await query(
+      `UPDATE "Reservation" 
+       SET status = 'COMPLETED', "updatedAt" = NOW()
+       ${whereClause}
+       RETURNING id`,
+      params,
+    );
+
+    if (result.length > 0) {
+      console.log(
+        `Auto-updated ${result.length} reservations to COMPLETED for user ${userId || 'all'}`,
+      );
+    }
+  } catch (err) {
+    console.error('Error updating expired reservations:', err);
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const user = await getUserFromToken(req);
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
     }
 
     const body = await req.json();
@@ -20,89 +85,124 @@ export async function POST(req: NextRequest) {
       lastName,
       email,
       phone,
-      paymentMethod,
+      licenseNumber,
     } = body;
 
-    // Validation
-    if (
-      !carId ||
-      !startDate ||
-      !endDate ||
-      !firstName ||
-      !lastName ||
-      !email ||
-      !phone
-    ) {
+    if (!carId || !startDate || !endDate) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { ok: false, error: 'Missing required fields' },
         { status: 400 },
       );
     }
 
-    // Check if car exists and is available
-    const cars = await query('SELECT id FROM "Car" WHERE id = $1', [carId]);
-    if (cars.length === 0) {
-      return NextResponse.json({ error: 'Car not found' }, { status: 404 });
+    const car = await CarRepository.findById(Number(carId));
+
+    if (!car) {
+      return NextResponse.json(
+        { ok: false, error: 'Car not found' },
+        { status: 404 },
+      );
     }
 
-    // Check for overlapping reservations
-    const overlapping = await query(
-      `SELECT id FROM "Reservation" 
-       WHERE "carId" = $1 
-       AND status IN ('PENDING', 'CONFIRMED', 'IN_PROGRESS')
-       AND (
-         ($2 >= "startDate" AND $2 < "endDate") OR
-         ($3 > "startDate" AND $3 <= "endDate") OR
-         ($2 <= "startDate" AND $3 >= "endDate")
-       )`,
-      [carId, startDate, endDate],
-    );
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
 
-    if (overlapping.length > 0) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    if (start > end) {
       return NextResponse.json(
-        { error: 'Car is not available for selected dates' },
+        { ok: false, error: 'End date must be on or after start date' },
         { status: 400 },
       );
     }
 
-    // Determine status based on payment method
-    const status = paymentMethod === 'ON_SPOT' ? 'CONFIRMED' : 'PENDING';
+    const diffTime = end.getTime() - start.getTime();
+    const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+    const totalPrice = days * car.pricePerDay;
 
-    // Create reservation
-    const result = await query(
-      `INSERT INTO "Reservation" 
-       ("userId", "carId", "startDate", "endDate", "firstName", "lastName", "email", "phone", "status", "paymentMethod", "createdAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
-       RETURNING *`,
-      [
-        user.id,
-        carId,
-        startDate,
-        endDate,
-        firstName,
-        lastName,
-        email,
-        phone,
-        status,
-        paymentMethod || 'CARD',
-      ],
-    );
-
-    console.log('✅ Reservation created:', {
-      id: result[0].id,
-      userId: result[0].userId,
-      carId: result[0].carId,
-      status: result[0].status,
+    console.log('Reservation Calculation:', {
+      carId,
+      carMake: car.make,
+      carModel: car.model,
+      pricePerDay: car.pricePerDay,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+      days,
+      totalPrice,
+      calculation: `${days} days × $${car.pricePerDay} = $${totalPrice}`,
     });
 
-    return NextResponse.json({ reservation: result[0] }, { status: 201 });
-  } catch (error) {
-    console.error('❌ POST reservation error:', error);
+    const reservation = await ReservationRepository.create({
+      userId: user.id,
+      carId: Number(carId),
+      startDate: start,
+      endDate: end,
+      totalPrice,
+      firstName: firstName || user.name || '',
+      lastName: lastName || user.name || '',
+      email: email || user.email,
+      phone: phone || '',
+      status: 'PENDING',
+      paymentStatus: 'PENDING',
+    });
+
+    console.log('Reservation Created:', {
+      id: reservation.id,
+      totalPrice: reservation.totalPrice,
+      days,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      reservation: {
+        ...reservation,
+        car: {
+          make: car.make,
+          model: car.model,
+          pricePerDay: car.pricePerDay,
+        },
+        days,
+      },
+    });
+  } catch (err) {
+    console.error('POST /api/reservations error:', err);
     return NextResponse.json(
-      { error: 'Failed to create reservation' },
+      {
+        ok: false,
+        error: 'Failed to create reservation',
+        details: (err as Error)?.message,
+      },
       { status: 500 },
     );
   }
 }
-// 122
-// 58.77
+
+export async function GET(req: Request) {
+  try {
+    const user = await getUserFromToken(req);
+
+    if (!user) {
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
+
+    // Update expired reservations before fetching
+    await updateExpiredReservations(user.id);
+
+    const reservations = await ReservationRepository.findByUser(user.id);
+
+    return NextResponse.json({
+      ok: true,
+      reservations,
+    });
+  } catch (err) {
+    console.error('GET /api/reservations error:', err);
+    return NextResponse.json(
+      { ok: false, error: 'Failed to fetch reservations' },
+      { status: 500 },
+    );
+  }
+}

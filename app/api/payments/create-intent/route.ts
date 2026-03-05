@@ -1,98 +1,113 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser } from '@/app/lib/auth';
-import { query } from '@/app/lib/db';
-import { stripe } from '@/app/lib/stripe';
+import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
+import {
+  ReservationRepository,
+  CarRepository,
+} from '../../../lib/repositories';
 
-export async function POST(req: NextRequest) {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-12-15.clover',
+});
+
+export async function POST(req: Request) {
   try {
-    const user = await getAuthUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await req.json();
     const { reservationId } = body;
 
     if (!reservationId) {
       return NextResponse.json(
-        { error: 'Missing reservationId' },
+        { ok: false, error: 'Missing reservation ID' },
         { status: 400 },
       );
     }
 
-    console.log('💰 Creating payment intent for reservation:', reservationId);
+    // Fetch reservation to get the total price
+    const reservation = await ReservationRepository.findById(reservationId);
 
-    // Get reservation with car price
-    const rows = await query(
-      `SELECT 
-        r.*,
-        c."pricePerDay"
-      FROM "Reservation" r 
-      JOIN "Car" c ON r."carId" = c.id 
-      WHERE r.id = $1 AND r."userId" = $2`,
-      [reservationId, user.id],
-    );
-
-    if (rows.length === 0) {
-      console.log('❌ Reservation not found');
+    if (!reservation) {
       return NextResponse.json(
-        { error: 'Reservation not found' },
+        { ok: false, error: 'Reservation not found' },
         { status: 404 },
       );
     }
 
-    const reservation = rows[0];
+    // Get car details
+    const car = await CarRepository.findById(reservation.carId);
 
-    // Calculate days (+1 to include both start and end date)
-    const start = new Date(reservation.startDate);
-    const end = new Date(reservation.endDate);
-    const days =
-      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    if (!car) {
+      return NextResponse.json(
+        { ok: false, error: 'Car not found' },
+        { status: 404 },
+      );
+    }
 
-    // Calculate total
-    const pricePerDay = parseFloat(reservation.pricePerDay);
-    const totalAmount = days * pricePerDay;
+    // Calculate total price dynamically using same logic as reservation
+    const startDate = new Date(reservation.startDate);
+    startDate.setHours(0, 0, 0, 0);
 
-    console.log('📊 Payment calculation:', {
-      days,
-      pricePerDay,
-      totalAmount,
-      startDate: reservation.startDate,
-      endDate: reservation.endDate,
-    });
+    const endDate = new Date(reservation.endDate);
+    endDate.setHours(23, 59, 59, 999);
 
-    // Stripe expects amount in cents
-    const amountInCents = Math.round(totalAmount * 100);
+    const diffTime = endDate.getTime() - startDate.getTime();
+    const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+    const totalPrice = days * car.pricePerDay;
 
-    console.log('💳 Creating Stripe PaymentIntent:', {
-      amount: amountInCents,
-      currency: 'eur',
+    console.log('Payment Intent Calculation:', {
       reservationId,
+      carMake: car.make,
+      carModel: car.model,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      days,
+      pricePerDay: car.pricePerDay,
+      totalPrice,
+      calculation: `${days} days × $${car.pricePerDay} = $${totalPrice}`,
     });
 
-    // Create Stripe PaymentIntent
+    // Create Stripe Payment Intent with correct amount
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: 'eur',
+      amount: Math.round(totalPrice * 100), // Convert to cents
+      currency: 'usd',
       metadata: {
-        reservationId: String(reservationId),
-        userId: String(user.id),
+        reservationId: reservationId.toString(),
+        totalPrice: totalPrice.toString(),
+        carId: car.id.toString(),
+        carMake: car.make || '',
+        carModel: car.model || '',
+        days: days.toString(),
+        pricePerDay: car.pricePerDay.toString(),
       },
       automatic_payment_methods: {
         enabled: true,
       },
     });
 
-    console.log('✅ PaymentIntent created:', paymentIntent.id);
+    console.log('Payment Intent Created:', {
+      id: paymentIntent.id,
+      amount: paymentIntent.amount,
+      amountInDollars: paymentIntent.amount / 100,
+    });
 
     return NextResponse.json({
+      ok: true,
       clientSecret: paymentIntent.client_secret,
-      amount: totalAmount,
+      paymentIntentId: paymentIntent.id,
+      amount: totalPrice,
+      days,
+      pricePerDay: car.pricePerDay,
+      car: {
+        make: car.make,
+        model: car.model,
+      },
     });
-  } catch (error: any) {
-    console.error('❌ create-intent error:', error);
+  } catch (err) {
+    console.error('Create Payment Intent Error:', err);
     return NextResponse.json(
-      { error: error.message || 'Failed to create payment intent' },
+      {
+        ok: false,
+        error: 'Failed to create payment intent',
+        details: (err as Error)?.message,
+      },
       { status: 500 },
     );
   }

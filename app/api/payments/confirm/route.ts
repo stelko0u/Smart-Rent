@@ -1,133 +1,250 @@
 import { NextResponse } from 'next/server';
-import jwt, { JwtPayload } from 'jsonwebtoken';
+import Stripe from 'stripe';
 import {
   ReservationRepository,
-  UserRepository,
-  PaymentRepository,
+  PaymentsRepository,
   CarRepository,
   CompanyRepository,
 } from '../../../lib/repositories';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
-
-function getTokenFromRequest(req: Request) {
-  const auth = req.headers.get('authorization');
-  if (auth?.startsWith('Bearer ')) return auth.substring(7).trim();
-  const cookieHeader = req.headers.get('cookie') || '';
-  const match = cookieHeader.match(
-    new RegExp(`(^|;\\s*)${COOKIE_NAME}=([^;]+)`),
-  );
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
-async function getUserFromToken(req: Request) {
-  if (!JWT_SECRET) return null;
-  const token = getTokenFromRequest(req);
-  if (!token) return null;
-
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    const userId = Number(payload.userId ?? payload.sub);
-    if (!userId || isNaN(userId)) return null;
-
-    const user = await UserRepository.findById(userId);
-    return user;
-  } catch (err) {
-    return null;
-  }
-}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-12-15.clover',
+});
 
 export async function POST(req: Request) {
+  console.log('=== CONFIRM PAYMENT ENDPOINT CALLED ===');
+
   try {
-    const user = await getUserFromToken(req);
-    if (!user) {
-      return NextResponse.json(
-        { ok: false, error: 'Unauthorized' },
-        { status: 401 },
-      );
-    }
-
     const body = await req.json();
-    const { reservationId, paymentMethod } = body;
+    console.log('Request body:', body);
 
-    if (!reservationId) {
+    const { paymentIntentId } = body;
+
+    if (!paymentIntentId) {
+      console.error('Missing payment intent ID');
       return NextResponse.json(
-        { ok: false, error: 'Reservation ID required' },
+        { ok: false, error: 'Missing payment intent ID' },
         { status: 400 },
       );
     }
 
-    const reservation = await ReservationRepository.findById(
-      Number(reservationId),
-    );
+    console.log('Fetching payment intent from Stripe:', paymentIntentId);
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    console.log('Payment intent status:', paymentIntent.status);
+    console.log('Payment intent metadata:', paymentIntent.metadata);
+
+    if (paymentIntent.status !== 'succeeded') {
+      console.error('Payment not successful, status:', paymentIntent.status);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Payment not successful',
+          status: paymentIntent.status,
+        },
+        { status: 400 },
+      );
+    }
+
+    const reservationId = Number(paymentIntent.metadata.reservationId);
+    const totalPrice = Number(paymentIntent.metadata.totalPrice);
+
+    console.log('Parsed reservation ID:', reservationId);
+    console.log('Parsed total price:', totalPrice);
+
+    if (!reservationId || isNaN(reservationId)) {
+      console.error('Invalid reservation ID:', reservationId);
+      return NextResponse.json(
+        { ok: false, error: 'Invalid reservation ID in payment metadata' },
+        { status: 400 },
+      );
+    }
+
+    console.log('Fetching reservation from DB:', reservationId);
+    const reservation = await ReservationRepository.findById(reservationId);
 
     if (!reservation) {
+      console.error('Reservation not found:', reservationId);
       return NextResponse.json(
         { ok: false, error: 'Reservation not found' },
         { status: 404 },
       );
     }
 
-    if (reservation.userId !== user.id) {
-      return NextResponse.json(
-        { ok: false, error: 'Unauthorized' },
-        { status: 403 },
-      );
-    }
+    console.log('Reservation found:', reservation);
 
-    // Get car to find company
+    console.log('Fetching car from DB:', reservation.carId);
     const car = await CarRepository.findById(reservation.carId);
+
     if (!car || !car.companyId) {
+      console.error('Car or company not found:', { car });
       return NextResponse.json(
         { ok: false, error: 'Car or company not found' },
         { status: 404 },
       );
     }
 
-    // Get company to calculate fees
+    console.log('Car found:', { id: car.id, companyId: car.companyId });
+
+    // Fetch company to get maintenancePercent
+    console.log('Fetching company from DB:', car.companyId);
     const company = await CompanyRepository.findById(car.companyId);
+
     if (!company) {
+      console.error('Company not found:', car.companyId);
       return NextResponse.json(
         { ok: false, error: 'Company not found' },
         { status: 404 },
       );
     }
 
-    // Calculate platform fee and company earnings
-    const platformFeePercent = company.maintenancePercent || 0;
-    const platformFee = (reservation.totalPrice * platformFeePercent) / 100;
-    const companyEarnings = reservation.totalPrice - platformFee;
-
-    // Update reservation
-    const paymentStatus = paymentMethod === 'ON_SPOT' ? 'PENDING' : 'PAID';
-    const updated = await ReservationRepository.update(reservation.id, {
-      paymentMethod: paymentMethod || 'CARD',
-      paymentStatus,
-      status: 'CONFIRMED',
+    console.log('Company found:', {
+      id: company.id,
+      name: company.name,
+      maintenancePercent: company.maintenancePercent,
     });
 
-    // Create payment record
-    const payment = await PaymentRepository.create({
-      reservationId: reservation.id,
-      companyId: car.companyId,
-      amount: reservation.totalPrice,
+    // Calculate payment breakdown
+    const totalAmount = paymentIntent.amount / 100;
+    const maintenancePercent = company.maintenancePercent || 15; // Default 15% if not set
+
+    // Convert percentage to decimal (15% -> 0.15)
+    const platformFee = Number(
+      ((totalAmount * maintenancePercent) / 100).toFixed(2),
+    );
+    const companyEarnings = Number((totalAmount - platformFee).toFixed(2));
+
+    console.log('Payment calculations:', {
+      totalAmount,
+      maintenancePercent: `${maintenancePercent}%`,
       platformFee,
       companyEarnings,
-      paymentMethod: paymentMethod || 'CARD',
-      paymentStatus,
-      paidAt: paymentMethod === 'CARD' ? new Date() : undefined,
     });
+
+    console.log('Fetching charges from Stripe');
+    const charges = await stripe.charges.list({
+      payment_intent: paymentIntentId,
+      limit: 1,
+    });
+
+    const chargeId = charges.data[0]?.id || '';
+    console.log('Charge ID:', chargeId);
+
+    console.log(
+      'Checking for existing payment for reservation:',
+      reservationId,
+    );
+    const existingPayment =
+      await PaymentsRepository.findByReservation(reservationId);
+    console.log('Existing payment:', existingPayment);
+
+    if (existingPayment) {
+      if (
+        existingPayment.paymentStatus === 'PAID' &&
+        existingPayment.stripePaymentIntentId === paymentIntentId
+      ) {
+        console.log('Payment already processed, returning existing payment');
+        return NextResponse.json({
+          ok: true,
+          message: 'Payment already confirmed',
+          payment: existingPayment,
+          reservationId,
+        });
+      }
+
+      console.log('Updating existing payment to PAID');
+
+      const updateData = {
+        paymentStatus: 'PAID' as const,
+        stripePaymentIntentId: paymentIntentId,
+        stripeChargeId: chargeId,
+        paidAt: new Date(),
+        amount: totalAmount,
+        totalPrice: totalPrice || reservation.totalPrice,
+        platformFee,
+        companyEarnings,
+      };
+
+      console.log('Update data:', updateData);
+
+      const updatedPayment = await PaymentsRepository.update(
+        existingPayment.id,
+        updateData,
+      );
+
+      console.log('Updated payment:', updatedPayment);
+
+      console.log(
+        'Updating reservation status to CONFIRMED and paymentStatus to PAID',
+      );
+      await ReservationRepository.update(reservationId, {
+        status: 'CONFIRMED',
+        paymentStatus: 'PAID',
+      });
+
+      console.log('SUCCESS: Payment updated to PAID and reservation confirmed');
+
+      return NextResponse.json({
+        ok: true,
+        message: 'Payment confirmed and updated',
+        payment: updatedPayment,
+        reservationId,
+      });
+    }
+
+    console.log('No existing payment found, creating new one');
+
+    const createData = {
+      reservationId,
+      companyId: car.companyId,
+      amount: totalAmount,
+      totalPrice: totalPrice || reservation.totalPrice,
+      platformFee,
+      companyEarnings,
+      paymentStatus: 'PAID' as const,
+      paymentMethod: 'CARD' as const,
+      stripePaymentIntentId: paymentIntentId,
+      stripeChargeId: chargeId,
+      paidAt: new Date(),
+    };
+
+    console.log('Create data:', createData);
+
+    const payment = await PaymentsRepository.create(createData);
+
+    console.log('Payment created:', payment);
+
+    console.log(
+      'Updating reservation status to CONFIRMED and paymentStatus to PAID',
+    );
+    await ReservationRepository.update(reservationId, {
+      status: 'CONFIRMED',
+      paymentStatus: 'PAID',
+    });
+
+    console.log('SUCCESS: Payment created and reservation confirmed');
 
     return NextResponse.json({
       ok: true,
-      reservation: updated,
+      message: 'Payment confirmed and recorded',
       payment,
+      reservationId,
     });
   } catch (err) {
-    console.error('POST /api/payments/confirm error:', err);
+    console.error('=== ERROR IN CONFIRM PAYMENT ===');
+    console.error('Error message:', (err as Error)?.message);
+    console.error('Error stack:', (err as Error)?.stack);
+    console.error('Full error:', err);
+
     return NextResponse.json(
-      { ok: false, error: 'Server error' },
+      {
+        ok: false,
+        error: 'Server error',
+        details:
+          process.env.NODE_ENV === 'development'
+            ? (err as Error)?.message
+            : undefined,
+      },
       { status: 500 },
     );
   }

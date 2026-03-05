@@ -107,7 +107,7 @@ export default function CheckoutForm({
           <div className="flex justify-between items-center">
             <span className="text-gray-700 font-medium">Total Amount:</span>
             <span className="text-2xl font-bold text-indigo-600">
-              €{amount.toFixed(2)}
+              €{amount}
             </span>
           </div>
         </div>
@@ -152,7 +152,7 @@ export default function CheckoutForm({
             Processing...
           </span>
         ) : (
-          `Pay €${amount?.toFixed(2) || '0.00'}`
+          `Pay €${amount || '0.00'}`
         )}
       </button>
 

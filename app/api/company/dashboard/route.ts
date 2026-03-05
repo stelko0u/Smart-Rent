@@ -37,6 +37,33 @@ async function getUserFromToken(req: Request) {
   }
 }
 
+async function updateExpiredReservationsForCompany(companyId: number) {
+  const now = new Date();
+
+  try {
+    const result = await query(
+      `UPDATE "Reservation" r
+       SET status = 'COMPLETED', "updatedAt" = NOW()
+       FROM "Car" c
+       WHERE r."carId" = c.id 
+       AND c."companyId" = $2
+       AND r.status IN ('CONFIRMED', 'IN_PROGRESS') 
+       AND r."endDate" < $1 
+       AND r."paymentStatus" = 'PAID'
+       RETURNING r.id`,
+      [now, companyId],
+    );
+
+    if (result.length > 0) {
+      console.log(
+        `Auto-updated ${result.length} company reservations to COMPLETED for company ${companyId}`,
+      );
+    }
+  } catch (err) {
+    console.error('Error updating expired company reservations:', err);
+  }
+}
+
 export async function GET(req: Request) {
   try {
     const user = await getUserFromToken(req);
@@ -66,6 +93,9 @@ export async function GET(req: Request) {
       );
     }
 
+    // Update expired reservations before fetching stats
+    await updateExpiredReservationsForCompany(company!.id);
+
     // Get all PAID reservations for company cars
     const paidReservations = await query(
       `SELECT r.*, c.make as "carMake", c.model as "carModel"
@@ -87,9 +117,10 @@ export async function GET(req: Request) {
 
     // Get all reservations for counts (regardless of payment status)
     const allReservations = await query(
-      `SELECT r.*, c.make as "carMake", c.model as "carModel"
+      `SELECT r.*, c.make as "carMake", c.model as "carModel", u."name" as "userName", u."email" as "userEmail"
        FROM "Reservation" r
        JOIN "Car" c ON r."carId" = c.id
+       LEFT JOIN "User" u ON r."userId" = u.id
        WHERE c."companyId" = $1
        ORDER BY r."createdAt" DESC`,
       [company!.id],
@@ -117,7 +148,11 @@ export async function GET(req: Request) {
       totalPrice: parseFloat(r.totalPrice || 0),
       status: r.status,
       paymentStatus: r.paymentStatus || 'PENDING',
-      customerName: `${r.firstName} ${r.lastName}`,
+      customerName:
+        r.userName ||
+        `${r.firstName || ''} ${r.lastName || ''}`.trim() ||
+        r.userEmail ||
+        'Unknown',
     }));
 
     return NextResponse.json({

@@ -33,6 +33,33 @@ async function getUserFromToken(req: Request) {
   }
 }
 
+async function updateExpiredReservationsForCompany(companyId: number) {
+  const now = new Date();
+
+  try {
+    const result = await query(
+      `UPDATE "Reservation" r
+       SET status = 'COMPLETED', "updatedAt" = NOW()
+       FROM "Car" c
+       WHERE r."carId" = c.id 
+       AND c."companyId" = $2
+       AND r.status IN ('CONFIRMED', 'IN_PROGRESS') 
+       AND r."endDate" < $1 
+       AND r."paymentStatus" = 'PAID'
+       RETURNING r.id`,
+      [now, companyId],
+    );
+
+    if (result.length > 0) {
+      console.log(
+        `Auto-updated ${result.length} company reservations to COMPLETED for company ${companyId}`,
+      );
+    }
+  } catch (err) {
+    console.error('Error updating expired company reservations:', err);
+  }
+}
+
 export async function GET(req: Request) {
   try {
     const user = await getUserFromToken(req);
@@ -61,6 +88,9 @@ export async function GET(req: Request) {
         { status: 404 },
       );
     }
+
+    // Update expired reservations before fetching
+    await updateExpiredReservationsForCompany(company!.id);
 
     // Get all reservations for company cars
     const reservations = await query(

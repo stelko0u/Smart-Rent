@@ -74,28 +74,48 @@ export interface Reservation {
     | 'CANCELLED';
 
   createdAt: Date;
+  updatedAt?: Date;
   totalPrice: number;
   firstName: string;
   lastName: string;
   email: string;
   phone?: string;
   notes?: string;
-
   paymentIntentId?: string;
   paymentMethod?: 'CARD' | 'ON_SPOT';
   paymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 }
 
-export interface Payment {
+// export interface Payments {
+//   id: number;
+//   reservationId: number;
+//   companyId: number;
+//   amount: number;
+//   totalPrice: number;
+//   platformFee: number;
+//   companyEarnings: number;
+//   paymentMethod: 'CARD' | 'ON_SPOT';
+//   paymentStatus: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+//   paidAt?: Date;
+//   createdAt: Date;
+//   updatedAt?: Date;
+//   stripePaymentIntentId: string;
+//   stripeChargeId: string;
+// }
+export interface Payments {
   id: number;
   reservationId: number;
   companyId: number;
   amount: number;
+  totalPrice: number;
   platformFee: number;
   companyEarnings: number;
-  paymentMethod: 'CARD' | 'ON_SPOT';
   paymentStatus: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
-  paidAt?: Date;
+  paymentMethod: 'CARD' | 'CASH';
+  stripePaymentIntentId: string | null;
+  stripeChargeId: string | null;
+  paidAt: Date | null;
+  refundedAt?: Date | null;
   createdAt: Date;
   updatedAt?: Date;
 }
