@@ -1,6 +1,8 @@
-"use client";
+'use client';
 
-import React from "react";
+import React from 'react';
+import { useRouter } from 'next/navigation'; // Импортиране на useRouter
+import { Building, Cars, ChartLine, Plus, UsersGear } from '../icons';
 
 export default function AdminSidebar({
   active,
@@ -9,13 +11,36 @@ export default function AdminSidebar({
   active: string;
   setActive: (s: string) => void;
 }) {
+  const router = useRouter(); // Инициализиране на useRouter
+
   const items = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "companies", label: "Manage Companies" },
-    { key: "add-company", label: "Add Company" },
-    { key: "cars", label: "Manage Cars" },
-    { key: "users", label: "Manage Users" },
+    {
+      key: 'dashboard',
+      label: 'Dashboard',
+      icon: <ChartLine className="w-5 h-5" />,
+    },
+    {
+      key: 'companies',
+      label: 'Manage Companies',
+      icon: <Building className="w-5 h-5" />,
+    },
+    {
+      key: 'add-company',
+      label: 'Add Company',
+      icon: <Plus className="w-5 h-5" />,
+    },
+    { key: 'cars', label: 'Manage Cars', icon: <Cars className="w-5 h-5" /> },
+    {
+      key: 'users',
+      label: 'Manage Users',
+      icon: <UsersGear className="w-5 h-5" />,
+    },
   ];
+
+  const handleTabChange = (key: string) => {
+    setActive(key); // Промяна на локалното състояние
+    router.push(`/admin?tab=${key}`); // Актуализиране на URL-а
+  };
 
   return (
     <aside className="w-64 hidden md:flex flex-col bg-white border-r border-gray-200 min-h-screen p-6">
@@ -33,19 +58,25 @@ export default function AdminSidebar({
         {items.map((it) => (
           <button
             key={it.key}
-            onClick={() => setActive(it.key)}
+            onClick={() => handleTabChange(it.key)} // Използваме handleTabChange
             className={
-              "w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 " +
-              (active === it.key ? "bg-indigo-50 border border-indigo-200" : "")
+              'w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 ' +
+              (active === it.key ? 'bg-indigo-50 border border-indigo-200' : '')
             }
           >
-            {it.label}
+            <span className="flex items-center gap-3">
+              {it.icon}
+              {it.label}
+            </span>
           </button>
         ))}
       </nav>
 
       <div className="mt-auto">
-        <a href="/" className="block px-3 py-2 text-sm text-gray-600 hover:text-gray-800">
+        <a
+          href="/"
+          className="block px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
+        >
           Back to site
         </a>
       </div>

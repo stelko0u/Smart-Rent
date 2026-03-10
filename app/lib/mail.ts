@@ -216,7 +216,7 @@ export async function sendReservationConfirmation(
     { reservationId: reservation.id, type: 'confirm-reservation' },
     JWT_SECRET,
     {
-      expiresIn: '7d', // 7 days to confirm
+      expiresIn: '7d',
       subject: String(reservation.id),
     },
   );
@@ -252,12 +252,11 @@ export async function sendReservationConfirmation(
     new Date(reservation.startDate).getTime();
   const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
-  // Ensure totalPrice is a number
   const totalPrice = Number(reservation.totalPrice) || 0;
   const formattedPrice = totalPrice.toFixed(2);
 
-  const subject = `Потвърдете вашата резервация #${reservation.id} - Smart Rent`;
-  const text = `Здравейте ${reservation.firstName} ${reservation.lastName},\n\nВашето плащане е успешно! Моля, потвърдете резервацията си:\n\n${confirmUrl}\n\nАвтомобил: ${car.make} ${car.model} (${car.year})\nОт: ${startDate}\nДо: ${endDate}\nДни: ${days}\nОбща цена: €${formattedPrice}\n\nРезервация #${reservation.id}`;
+  const subject = `Confirm Your Reservation #${reservation.id} - Smart Rent`;
+  const text = `Hello ${reservation.firstName} ${reservation.lastName},\n\nYour payment has been processed successfully! Please confirm your reservation:\n\n${confirmUrl}\n\nCar: ${car.make} ${car.model} (${car.year})\nFrom: ${startDate}\nTo: ${endDate}\nDays: ${days}\nTotal Price: €${formattedPrice}\n\nReservation #${reservation.id}`;
 
   const html = `
 <!DOCTYPE html>
@@ -265,7 +264,7 @@ export async function sendReservationConfirmation(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Потвърдете вашата резервация</title>
+  <title>Confirm Your Reservation</title>
 </head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
 
@@ -400,7 +399,6 @@ export async function sendReservationConfirmation(
     html,
   };
 
-  // Only add attachments if logo exists
   if (logoBuffer) {
     mailPayload.attachments = [
       {

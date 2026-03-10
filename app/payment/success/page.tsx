@@ -29,7 +29,7 @@ export default function PaymentSuccess() {
         console.error('URL params:', Array.from(urlParams.entries()));
         setStatus('error');
         setMessage(
-          'Липсва информация за плащането. Моля, проверете вашите резервации в профила.',
+          'Payment information is missing. Please check your reservations in your account.',
         );
         return;
       }
@@ -38,7 +38,7 @@ export default function PaymentSuccess() {
         console.error('Payment not succeeded, status:', redirectStatus);
         setStatus('error');
         setMessage(
-          `Плащането не беше успешно. Статус: ${redirectStatus || 'неизвестен'}`,
+          `Payment failed. Status: ${redirectStatus || 'unknown'}`,
         );
         return;
       }
@@ -65,7 +65,7 @@ export default function PaymentSuccess() {
         if (data.ok) {
           setStatus('success');
           setMessage(
-            'Плащането е потвърдено успешно! Резервацията е завършена.',
+            'Payment confirmed successfully! Your reservation is complete.',
           );
           setReservationId(data.reservationId);
 
@@ -76,12 +76,12 @@ export default function PaymentSuccess() {
         } else {
           console.error('Confirm API returned error:', data);
           setStatus('error');
-          setMessage(data.error || 'Грешка при потвърждаване на плащането');
+          setMessage(data.error || 'Error confirming payment');
         }
       } catch (err) {
         console.error('Error confirming payment:', err);
         setStatus('error');
-        setMessage('Грешка при свързване със сървъра');
+        setMessage('Error connecting to the server');
       }
     };
 
@@ -100,10 +100,10 @@ export default function PaymentSuccess() {
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
             <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-              Обработка на плащането...
+              Processing Payment...
             </h2>
             <p className="text-gray-600">
-              Моля, изчакайте докато потвърдим вашето плащане
+              Please wait while we confirm your payment
             </p>
           </div>
         )}
@@ -112,17 +112,17 @@ export default function PaymentSuccess() {
           <div className="text-center">
             <div className="text-green-500 text-6xl mb-4">✓</div>
             <h2 className="text-2xl font-bold text-green-600 mb-2">
-              Успешно плащане!
+              Payment Successful!
             </h2>
             <p className="text-gray-600 mb-4">{message}</p>
             {reservationId && (
               <p className="text-sm text-gray-500">
-                Номер на резервация: #{reservationId}
+                Reservation ID: #{reservationId}
               </p>
             )}
             <div className="mt-6">
               <div className="animate-pulse text-sm text-gray-500">
-                Пренасочване към профила...
+                Redirecting to your profile...
               </div>
             </div>
           </div>
@@ -131,20 +131,20 @@ export default function PaymentSuccess() {
         {status === 'error' && (
           <div className="text-center">
             <div className="text-red-500 text-6xl mb-4">✗</div>
-            <h2 className="text-2xl font-bold text-red-600 mb-2">Грешка</h2>
+            <h2 className="text-2xl font-bold text-red-600 mb-2">Error</h2>
             <p className="text-gray-600 mb-6">{message}</p>
             <div className="space-y-3">
               <button
                 onClick={() => router.push('/profile')}
                 className="w-full bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors"
               >
-                Към профила
+                To Profile
               </button>
               <button
                 onClick={() => router.push('/')}
                 className="w-full bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors"
               >
-                Към началната страница
+                To Home Page
               </button>
             </div>
           </div>

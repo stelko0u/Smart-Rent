@@ -52,10 +52,16 @@ export async function middleware(req: NextRequest) {
 
   /**
    * ---------------------------
-   * Admin route protection
+   * Role-based route protection
    * ---------------------------
    */
-  if (!pathname.startsWith('/admin') && !pathname.startsWith('/api/admin')) {
+  const isAdminRoute =
+    pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
+
+  const isCompanyRoute =
+    pathname.startsWith('/company') || pathname.startsWith('/api/company');
+
+  if (!isAdminRoute && !isCompanyRoute) {
     return NextResponse.next();
   }
 
@@ -78,13 +84,14 @@ export async function middleware(req: NextRequest) {
           },
         );
       }
+
       return NextResponse.redirect(new URL('/signin', req.nextUrl.origin));
     }
 
     const json = await res.json().catch(() => ({}));
     const user = json?.user ?? null;
 
-    if (!user || user.role !== 'ADMIN') {
+    if (!user) {
       if (pathname.startsWith('/api/')) {
         return new NextResponse(
           JSON.stringify({ ok: false, error: 'forbidden' }),
@@ -94,6 +101,35 @@ export async function middleware(req: NextRequest) {
           },
         );
       }
+
+      return NextResponse.redirect(new URL('/signin', req.nextUrl.origin));
+    }
+
+    if (isAdminRoute && user.role !== 'ADMIN') {
+      if (pathname.startsWith('/api/')) {
+        return new NextResponse(
+          JSON.stringify({ ok: false, error: 'forbidden' }),
+          {
+            status: 403,
+            headers: { 'content-type': 'application/json' },
+          },
+        );
+      }
+
+      return NextResponse.redirect(new URL('/signin', req.nextUrl.origin));
+    }
+
+    if (isCompanyRoute && user.role !== 'COMPANY') {
+      if (pathname.startsWith('/api/')) {
+        return new NextResponse(
+          JSON.stringify({ ok: false, error: 'forbidden' }),
+          {
+            status: 403,
+            headers: { 'content-type': 'application/json' },
+          },
+        );
+      }
+
       return NextResponse.redirect(new URL('/signin', req.nextUrl.origin));
     }
 

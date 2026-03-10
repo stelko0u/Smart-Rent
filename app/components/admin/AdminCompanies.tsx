@@ -114,126 +114,197 @@ export default function AdminCompanies() {
   }
 
   return (
-    <section>
-      <h2 className="text-2xl font-semibold mb-4">Manage Companies</h2>
-      {error && (
-        <div className="mb-3 p-3 bg-red-100 text-red-700 rounded">{error}</div>
-      )}
-      {loading ? (
-        <div className="text-gray-600">Loading companies…</div>
-      ) : companies.length === 0 ? (
-        <div className="text-gray-600">No companies found</div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-            <thead className="bg-gray-100">
-              <tr className="text-left">
-                <th className="px-4 py-3 border-b font-medium">ID</th>
-                <th className="px-4 py-3 border-b font-medium">Name</th>
-                <th className="px-4 py-3 border-b font-medium">Email</th>
-                <th className="px-4 py-3 border-b font-medium">
-                  Maintenance %
-                </th>
-                <th className="px-4 py-3 border-b font-medium">Owner ID</th>
-                <th className="px-4 py-3 border-b font-medium">Created</th>
-                <th className="px-4 py-3 border-b font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {companies.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 border-b">{c.id}</td>
-                  <td className="px-4 py-3 border-b">
-                    {editingId === c.id ? (
-                      <input
-                        value={form.name}
-                        onChange={(e) =>
-                          setForm({ ...form, name: e.target.value })
-                        }
-                        className="px-2 py-1 border rounded w-full"
-                      />
-                    ) : (
-                      c.name || '—'
-                    )}
-                  </td>
-                  <td className="px-4 py-3 border-b">
-                    {editingId === c.id ? (
-                      <input
-                        value={form.email}
-                        onChange={(e) =>
-                          setForm({ ...form, email: e.target.value })
-                        }
-                        className="px-2 py-1 border rounded w-full"
-                      />
-                    ) : (
-                      c.email || '—'
-                    )}
-                  </td>
-                  <td className="px-4 py-3 border-b">
-                    {editingId === c.id ? (
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={String(form.maintenancePercent)}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            maintenancePercent: e.target.value,
-                          })
-                        }
-                        className="px-2 py-1 border rounded w-24"
-                      />
-                    ) : (
-                      (c.maintenancePercent ?? 0).toFixed(2) + '%'
-                    )}
-                  </td>
-                  <td className="px-4 py-3 border-b">{c.ownerId ?? '—'}</td>
-                  <td className="px-4 py-3 border-b">
-                    {c.createdAt
-                      ? new Date(c.createdAt).toLocaleDateString()
-                      : '—'}
-                  </td>
-                  <td className="px-4 py-3 border-b">
-                    {editingId === c.id ? (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => saveEdit(c.id)}
-                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="px-3 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => startEdit(c)}
-                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => del(c.id)}
-                          className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+            Manage Companies
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            View, edit, and manage company records.
+          </p>
         </div>
-      )}
+      </div>
+
+      <div className="p-6">
+        {error && (
+          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50">
+            <div className="text-center">
+              <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-600" />
+              <p className="text-sm font-medium text-slate-600">
+                Loading companies...
+              </p>
+            </div>
+          </div>
+        ) : companies.length === 0 ? (
+          <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50">
+            <div className="text-center">
+              <p className="text-base font-semibold text-slate-700">
+                No companies found
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Companies will appear here once they are created.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm text-slate-700">
+                <thead className="bg-slate-50">
+                  <tr className="text-left">
+                    <th className="px-5 py-4 font-semibold text-slate-600">
+                      ID
+                    </th>
+                    <th className="px-5 py-4 font-semibold text-slate-600">
+                      Name
+                    </th>
+                    <th className="px-5 py-4 font-semibold text-slate-600">
+                      Email
+                    </th>
+                    <th className="px-5 py-4 font-semibold text-slate-600">
+                      Maintenance %
+                    </th>
+                    <th className="px-5 py-4 font-semibold text-slate-600">
+                      Owner ID
+                    </th>
+                    <th className="px-5 py-4 font-semibold text-slate-600">
+                      Created
+                    </th>
+                    <th className="px-5 py-4 font-semibold text-slate-600">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {companies.map((c, index) => (
+                    <tr
+                      key={c.id}
+                      className={`transition hover:bg-slate-50 ${
+                        index % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
+                      }`}
+                    >
+                      <td className="whitespace-nowrap px-5 py-4">
+                        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                          #{c.id}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {editingId === c.id ? (
+                          <input
+                            value={form.name}
+                            onChange={(e) =>
+                              setForm({ ...form, name: e.target.value })
+                            }
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                            placeholder="Company name"
+                          />
+                        ) : (
+                          <span className="font-medium text-slate-900">
+                            {c.name || '—'}
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {editingId === c.id ? (
+                          <input
+                            value={form.email}
+                            onChange={(e) =>
+                              setForm({ ...form, email: e.target.value })
+                            }
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                            placeholder="company@email.com"
+                          />
+                        ) : (
+                          <span className="text-slate-600">
+                            {c.email || '—'}
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {editingId === c.id ? (
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={String(form.maintenancePercent)}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                maintenancePercent: e.target.value,
+                              })
+                            }
+                            className="w-28 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                          />
+                        ) : (
+                          <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                            {(c.maintenancePercent ?? 0).toFixed(2)}%
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-4 text-slate-600">
+                        {c.ownerId ?? '—'}
+                      </td>
+
+                      <td className="px-5 py-4 text-slate-600">
+                        {c.createdAt
+                          ? new Date(c.createdAt).toLocaleDateString()
+                          : '—'}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {editingId === c.id ? (
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => saveEdit(c.id)}
+                              className="inline-flex items-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-100"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="inline-flex items-center rounded-xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200 focus:outline-none focus:ring-4 focus:ring-slate-100"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => startEdit(c)}
+                              className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => del(c.id)}
+                              className="inline-flex items-center rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-100"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

@@ -82,11 +82,11 @@ export async function POST(req: Request) {
       },
     });
 
-    console.log('Payment Intent Created:', {
-      id: paymentIntent.id,
-      amount: paymentIntent.amount,
-      amountInDollars: paymentIntent.amount / 100,
-    });
+    // console.log('Payment Intent Created:', {
+    //   id: paymentIntent.id,
+    //   amount: paymentIntent.amount,
+    //   amountInDollars: paymentIntent.amount / 100,
+    // });
 
     return NextResponse.json({
       ok: true,

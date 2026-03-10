@@ -3,137 +3,25 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
-import {
-  Elements,
-  PaymentElement,
-  useStripe,
-  useElements,
-} from '@stripe/react-stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
+import CheckoutForm from '../../components/payments/PaymentForm';
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
 );
 
-function CheckoutForm({ reservationId }: { reservationId: string }) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const router = useRouter();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!stripe || !elements) {
-      console.error('Stripe or Elements not loaded');
-      return;
-    }
-
-    setIsProcessing(true);
-    setErrorMessage(null);
-
-    console.log('=== STARTING PAYMENT PROCESS ===');
-    console.log('Reservation ID:', reservationId);
-
-    try {
-      const returnUrl = `${window.location.origin}/payment/success`;
-      console.log('Return URL:', returnUrl);
-
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: returnUrl,
-        },
-        redirect: 'if_required',
-      });
-
-      console.log('Stripe response:', { error, paymentIntent });
-
-      if (error) {
-        console.error('Payment error:', error);
-        setErrorMessage(error.message || 'Грешка при плащането');
-        setIsProcessing(false);
-
-        // Mark payment as failed
-        try {
-          await fetch('/api/payments/failed', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              reservationId: Number(reservationId),
-              reason: error.message,
-            }),
-          });
-        } catch (err) {
-          console.error('Failed to mark payment as failed:', err);
-        }
-        return;
-      }
-
-      // If payment succeeded without redirect
-      if (paymentIntent && paymentIntent.status === 'succeeded') {
-        console.log('Payment succeeded immediately:', paymentIntent.id);
-
-        // Call confirm endpoint
-        try {
-          const confirmResponse = await fetch('/api/payments/confirm', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ paymentIntentId: paymentIntent.id }),
-          });
-
-          const confirmData = await confirmResponse.json();
-          console.log('Confirm response:', confirmData);
-
-          if (confirmData.ok) {
-            // Redirect to success page manually
-            router.push(
-              `/payment/success?payment_intent=${paymentIntent.id}&redirect_status=succeeded`,
-            );
-          } else {
-            setErrorMessage('Грешка при потвърждаване на плащането');
-            setIsProcessing(false);
-          }
-        } catch (err) {
-          console.error('Error confirming payment:', err);
-          setErrorMessage('Грешка при потвърждаване на плащането');
-          setIsProcessing(false);
-        }
-      }
-    } catch (err) {
-      console.error('Unexpected error:', err);
-      setErrorMessage('Неочаквана грешка при плащането');
-      setIsProcessing(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <PaymentElement />
-
-      {errorMessage && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          {errorMessage}
-        </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={!stripe || isProcessing}
-        className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        {isProcessing ? (
-          <>
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-            Обработка...
-          </>
-        ) : (
-          'Плати сега'
-        )}
-      </button>
-    </form>
-  );
+interface ReservationData {
+  id: number;
+  carMake: string;
+  carModel: string;
+  carImage: string | null;
+  startDate: string;
+  endDate: string;
+  days: number;
+  pricePerDay: number;
+  totalAmount: number;
+  status: string;
+  paymentMethod: string | null;
 }
 
 export default function PaymentPage() {
@@ -141,51 +29,68 @@ export default function PaymentPage() {
   const router = useRouter();
   const reservationId = params.id as string;
 
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [reservation, setReservation] = useState<any>(null);
+  const [reservation, setReservation] = useState<ReservationData | null>(null);
 
   useEffect(() => {
-    const createPaymentIntent = async () => {
+    const fetchReservation = async () => {
       try {
-        console.log('Creating payment intent for reservation:', reservationId);
+        setLoading(true);
+        console.log('Fetching reservation:', reservationId);
 
-        const response = await fetch('/api/payments/create-intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ reservationId: Number(reservationId) }),
-        });
+        const reservationResponse = await fetch(
+          `/api/reservations/${reservationId}`,
+          {
+            credentials: 'include',
+          },
+        );
 
-        const data = await response.json();
-        console.log('Payment intent response:', data);
+        console.log('Response status:', reservationResponse.status);
 
-        if (data.ok && data.clientSecret) {
-          setClientSecret(data.clientSecret);
-          setReservation(data.reservation);
-        } else {
-          setError(data.error || 'Грешка при създаване на плащането');
+        if (!reservationResponse.ok) {
+          const errorData = await reservationResponse.json().catch(() => ({}));
+          console.error('Error response:', errorData);
+          throw new Error(errorData.error || 'Failed to load reservation');
         }
+
+        const data = await reservationResponse.json();
+        console.log('Full API response:', data);
+
+        if (!data.reservation) {
+          throw new Error('No reservation data in response');
+        }
+
+        setReservation(data.reservation);
+        console.log('Reservation set:', data.reservation);
       } catch (err) {
-        console.error('Error creating payment intent:', err);
-        setError('Грешка при свързване със сървъра');
+        console.error('Error loading reservation:', err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Error connecting to the server. Please try again.',
+        );
       } finally {
         setLoading(false);
       }
     };
 
     if (reservationId) {
-      createPaymentIntent();
+      fetchReservation();
     }
   }, [reservationId]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Зареждане на плащането...</p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/50">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
+          <h2 className="text-lg font-semibold text-slate-900">
+            Preparing your checkout
+          </h2>
+          <p className="mt-2 text-sm text-slate-500">
+            Please wait while we load your payment details.
+          </p>
         </div>
       </div>
     );
@@ -193,70 +98,185 @@ export default function PaymentPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-red-50 border border-red-200 rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-red-700 mb-2">Грешка</h2>
-          <p className="text-red-600 mb-4">{error}</p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="w-full max-w-md rounded-3xl border border-red-200 bg-white p-8 shadow-xl shadow-red-100/40">
+          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+            <span className="text-2xl">⚠</span>
+          </div>
+          <h2 className="mb-2 text-2xl font-bold text-slate-900">
+            Payment Error
+          </h2>
+          <p className="mb-6 text-sm leading-6 text-slate-600">{error}</p>
           <button
             onClick={() => router.push('/profile')}
-            className="w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700"
+            className="w-full rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700"
           >
-            Обратно към профила
+            Back to Profile
           </button>
         </div>
       </div>
     );
   }
 
-  if (!clientSecret) {
-    return null;
+  if (!reservation) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/50">
+          <h2 className="text-lg font-semibold text-slate-900">
+            No reservation found
+          </h2>
+          <p className="mt-2 text-sm text-slate-500">
+            Unable to load reservation details.
+          </p>
+          <button
+            onClick={() => router.push('/profile')}
+            className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Back to Profile
+          </button>
+        </div>
+      </div>
+    );
   }
 
-  const appearance = {
-    theme: 'stripe' as const,
-    variables: {
-      colorPrimary: '#2563eb',
-    },
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Завършване на плащането
-          </h1>
-          <p className="text-gray-600 mb-8">Резервация #{reservationId}</p>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 px-4 py-10 md:py-16">
+      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="order-2 lg:order-1">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/40 md:p-8">
+            <div className="mb-8">
+              <div className="mb-3 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+                Secure Checkout
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+                Complete Your Payment
+              </h1>
+              <p className="mt-2 text-sm text-slate-500">
+                Reservation #{reservationId}
+              </p>
+            </div>
 
-          {reservation && (
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-600">Начална дата:</span>
-                <span className="font-semibold">
-                  {new Date(reservation.startDate).toLocaleDateString('bg-BG')}
-                </span>
+            <Elements stripe={stripePromise}>
+              <CheckoutForm reservationId={Number(reservationId)} />
+            </Elements>
+          </div>
+        </div>
+
+        <div className="order-1 lg:order-2">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/40 md:p-8 lg:sticky lg:top-8">
+            <h2 className="text-xl font-bold text-slate-900">Order Summary</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Review your reservation before completing payment.
+            </p>
+
+            <div className="mt-6 space-y-5">
+              {/* Car Image */}
+              {reservation.carImage && (
+                <div className="overflow-hidden rounded-2xl">
+                  <img
+                    src={reservation.carImage}
+                    alt={`${reservation.carMake} ${reservation.carModel}`}
+                    className="h-48 w-full object-cover"
+                  />
+                </div>
+              )}
+
+              {/* Reservation Details */}
+              <div className="space-y-3 rounded-2xl bg-slate-50 p-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Reservation ID</span>
+                  <span className="font-semibold text-slate-900">
+                    #{reservation.id}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Vehicle</span>
+                  <span className="font-semibold text-slate-900">
+                    {reservation.carMake} {reservation.carModel}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Start Date</span>
+                  <span className="font-semibold text-slate-900">
+                    {new Date(reservation.startDate).toLocaleDateString(
+                      'en-GB',
+                      {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      },
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">End Date</span>
+                  <span className="font-semibold text-slate-900">
+                    {new Date(reservation.endDate).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Duration</span>
+                  <span className="font-semibold text-slate-900">
+                    {reservation.days} day{reservation.days !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Status</span>
+                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
+                    {reservation.status}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-600">Крайна дата:</span>
-                <span className="font-semibold">
-                  {new Date(reservation.endDate).toLocaleDateString('bg-BG')}
-                </span>
+
+              {/* Price Breakdown */}
+              <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">
+                    €{reservation.pricePerDay.toFixed(2)} × {reservation.days}{' '}
+                    day{reservation.days !== 1 ? 's' : ''}
+                  </span>
+                  <span className="text-slate-900">
+                    €{reservation.totalAmount.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+                  <span className="text-base font-semibold text-slate-900">
+                    Total Amount
+                  </span>
+                  <span className="text-2xl font-bold text-slate-900">
+                    €{reservation.totalAmount.toFixed(2)}
+                  </span>
+                </div>
               </div>
-              <div className="border-t border-gray-200 mt-3 pt-3 flex justify-between items-center">
-                <span className="text-gray-600 text-lg">Обща сума:</span>
-                <span className="text-2xl font-bold text-gray-900">
-                  {reservation.totalPrice} EUR
-                </span>
+
+              {/* Security Notice */}
+              <div className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-700">
+                🔒 Your payment is processed securely via Stripe
+              </div>
+
+              {/* Calculation Info */}
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-medium text-slate-900">
+                  Calculation:
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {reservation.days} days × €
+                  {reservation.pricePerDay} = €
+                  {reservation.totalAmount}
+                </p>
               </div>
             </div>
-          )}
-
-          <Elements
-            stripe={stripePromise}
-            options={{ clientSecret, appearance }}
-          >
-            <CheckoutForm reservationId={reservationId} />
-          </Elements>
+          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, ReactNode } from 'react';
+import React, { useEffect, useState, ReactNode } from 'react';
+import { useSearchParams } from 'next/navigation';
 import AdminSidebar from './AdminSidebar';
 import AdminDashboard from './AdminDashboard';
 import AdminCompanies from './AdminCompanies';
@@ -14,7 +15,15 @@ type AdminShellProps = {
 };
 
 export default function AdminShell({ me, children }: AdminShellProps) {
+  const searchParams = useSearchParams();
   const [active, setActive] = useState<string>('dashboard');
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) {
+      setActive(tab);
+    }
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
@@ -22,10 +31,10 @@ export default function AdminShell({ me, children }: AdminShellProps) {
         <AdminSidebar active={active} setActive={setActive} />
         <main className="flex-1 p-6">
           <header className="mb-6">
-            <h1 className="text-2xl font-semibold">
+            {/* <h1 className="text-2xl font-semibold">
               Admin — {me?.name ?? 'User'}
             </h1>
-            <p className="text-sm text-gray-500">Use the sidebar to navigate</p>
+            <p className="text-sm text-gray-500">Use the sidebar to navigate</p> */}
           </header>
 
           {children ?? (

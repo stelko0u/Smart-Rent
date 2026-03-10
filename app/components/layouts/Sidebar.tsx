@@ -3,7 +3,18 @@
 import React from 'react';
 import NavItem from './NavItem';
 import SignOutButton from '../auth/SignOutButton';
-import { Car, Cars, ChartLine, User } from '../icons';
+import {
+  Car,
+  CarKey,
+  Cars,
+  ChartLine,
+  House,
+  MagnifyingGlassPlus,
+  ScrewdriverWrench,
+  TriangleExclamation,
+  User,
+  UsersGear,
+} from '../icons';
 
 export default function Sidebar({
   active,
@@ -25,10 +36,30 @@ export default function Sidebar({
 
   if (role === 'user') {
     navItems.push(
-      { label: 'Home', key: 'home', href: '/' },
-      { label: 'Browse Cars', key: 'browse', href: '/' },
-      { label: 'My Rentals', key: 'rentals', href: 'profile?tab=rentals' },
-      { label: 'Profile', key: 'profile', href: '/profile', icon: <User className="w-6 h-6" /> },
+      {
+        label: 'Home',
+        key: 'home',
+        href: '/',
+        icon: <House className="w-6 h-6" />,
+      },
+      {
+        label: 'Browse Cars',
+        key: 'browse',
+        href: '/',
+        icon: <MagnifyingGlassPlus className="w-6 h-6" />,
+      },
+      {
+        label: 'My Rentals',
+        key: 'rentals',
+        href: 'profile?tab=rentals',
+        icon: <CarKey className="w-6 h-6" />,
+      },
+      {
+        label: 'Profile',
+        key: 'profile',
+        href: '/profile',
+        icon: <User className="w-6 h-6" />,
+      },
     );
   } else if (role === 'company') {
     navItems.push(
@@ -50,23 +81,51 @@ export default function Sidebar({
         href: '/company?tab=manage-cars',
         icon: <Cars className="w-6 h-6" />,
       },
-      { label: 'Profile', key: 'profile', href: '/profile', icon: <User className="w-6 h-6" /> },
+      {
+        label: 'Profile',
+        key: 'profile',
+        href: '/profile',
+        icon: <User className="w-6 h-6" />,
+      },
     );
   } else if (role === 'admin') {
     navItems.push(
-      { label: 'Admin Panel', key: 'admin-panel', href: '/admin' },
-      { label: 'Manage Users', key: 'manage-users', href: '/admin/users' },
-      { label: 'Reports', key: 'reports', href: '/admin/reports' },
+      {
+        label: 'Admin Panel',
+        key: 'admin-panel',
+        href: '/admin',
+        icon: <ScrewdriverWrench className="w-6 h-6" />,
+      },
+      {
+        label: 'Manage Users',
+        key: 'manage-users',
+        href: '/admin?tab=users',
+        icon: <UsersGear className="w-6 h-6" />,
+      },
+      {
+        label: 'Reports',
+        key: 'reports',
+        href: '/admin/reports',
+        icon: <TriangleExclamation className="w-6 h-6" />,
+      },
     );
   } else {
-    navItems.push({ label: 'Home', key: 'home', href: '/' });
+    navItems.push({
+      label: 'Home',
+      key: 'home',
+      href: '/',
+      icon: <House className="w-6 h-6" />,
+    });
   }
 
   return (
     <aside className="w-64 hidden md:flex flex-col bg-white border-r border-gray-200 min-h-screen p-6">
       <div className="flex items-center gap-3">
-        
-        <img src="/logo.png" alt="Smart Rent Logo" className="h-24 w-24 object-contain" />
+        <img
+          src="/logo.png"
+          alt="Smart Rent Logo"
+          className="h-24 w-24 object-contain"
+        />
         <div>
           <h3 className="text-lg font-semibold">Smart Rent</h3>
           <h4 className="text-sm text-gray-500">Drive Safe</h4>
