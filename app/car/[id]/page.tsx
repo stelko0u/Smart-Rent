@@ -2,14 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import ImageSlider from '../../components/vehicles/ImageSlider';
-import { Car as CarType } from '../../types/types';
-import Engine from '../../components/icons/Engine';
-import GasPump from '../../components/icons/GasPump';
-import Transmission from '../../components/icons/Transmission';
-import Car from '../../components/icons/Car';
-import Cube from '../../components/icons/Cube';
-import ReviewsList from '../../components/vehicles/ReviewsList';
+import ImageSlider from '../../../components/vehicles/ImageSlider';
+import { Car as CarType } from '../../../types/types';
+import Engine from '../../../components/icons/Engine';
+import GasPump from '../../../components/icons/GasPump';
+import Transmission from '../../../components/icons/Transmission';
+import Car from '../../../components/icons/Car';
+import Cube from '../../../components/icons/Cube';
+import ReviewsList from '../../../components/vehicles/ReviewsList';
 
 export default function CarDetailPage() {
   const router = useRouter();
@@ -20,6 +20,10 @@ export default function CarDetailPage() {
   const [loading, setLoading] = useState(true);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [canAddReview, setCanAddReview] = useState(false);
+  const [activeReservationId, setActiveReservationId] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!carId) return;
@@ -57,6 +61,77 @@ export default function CarDetailPage() {
     loadCar();
     loadReviews();
   }, [carId]);
+
+  useEffect(() => {
+    async function checkReviewEligibility() {
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        setCanAddReview(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/reviews/check-eligibility?carId=${carId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          setCanAddReview(data.canAddReview);
+          setActiveReservationId(data.reservationId);
+        }
+      } catch (error) {
+        console.error('Error checking review eligibility:', error);
+      }
+    }
+
+    if (carId && !reviewsLoading) {
+      checkReviewEligibility();
+    }
+  }, [carId, reviewsLoading]);
+
+  const handleSubmitReview = async (rating: number, comment: string) => {
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      alert('Please sign in to submit a review');
+      router.push('/signin');
+      return;
+    }
+
+    if (!activeReservationId) {
+      throw new Error('No active reservation found');
+    }
+
+    const res = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        carId: parseInt(carId),
+        rating,
+        comment,
+        reservationId: activeReservationId,
+      }),
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to submit review');
+    }
+
+    const newReview = await res.json();
+    setReviews((prev) => [newReview, ...prev]);
+    setCanAddReview(false);
+  };
 
   if (loading) {
     return (
@@ -186,7 +261,12 @@ export default function CarDetailPage() {
         </div>
 
         <div className="mt-8">
-          <ReviewsList reviews={reviews} loading={reviewsLoading} />
+          <ReviewsList
+            reviews={reviews}
+            loading={reviewsLoading}
+            canAddReview={canAddReview}
+            onSubmitReview={handleSubmitReview}
+          />
         </div>
       </div>
     </div>

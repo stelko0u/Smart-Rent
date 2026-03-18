@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
-import AdminShell from '../../components/admin/AdminShell';
-import AdminCompanies from '../../components/admin/AdminCompanies';
-import { getMe } from '../../admin/page';
+import AdminShell from '../../../components/admin/AdminShell';
+import AdminCompanies from '../../../components/admin/AdminCompanies';
+import { getMe } from '@/lib/auth';
 
 export default async function ManageCompaniesPage() {
   const me = await getMe();

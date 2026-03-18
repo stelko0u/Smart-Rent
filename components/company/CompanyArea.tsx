@@ -9,7 +9,7 @@ import ManageCars from './ManageCars';
 import AddCarForm from './AddCarForm';
 import CompanyOffices from './CompanyOffices';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Car } from '@/app/types/database';
+import { Car } from '@/types/database';
 
 async function parseJsonSafe(res: Response) {
   const text = await res.text();

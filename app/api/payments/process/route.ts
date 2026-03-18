@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/app/lib/stripe';
-import { query } from '@/app/lib/db';
+import { stripe } from '@/lib/stripe';
+import { query } from '@/lib/db';
 import Stripe from 'stripe';
 
 export const runtime = 'nodejs';

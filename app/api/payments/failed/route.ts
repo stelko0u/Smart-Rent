@@ -1,8 +1,7 @@
+import { PaymentsRepository } from '@/lib/repositories/PaymentsRepository';
+import { ReservationRepository } from '@/lib/repositories/ReservationRepository';
 import { NextResponse } from 'next/server';
-import {
-  ReservationRepository,
-  PaymentsRepository,
-} from '../../../lib/repositories';
+
 
 export async function POST(req: Request) {
   try {

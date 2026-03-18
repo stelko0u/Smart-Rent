@@ -1,5 +1,5 @@
+import { ReviewRepository } from '@/lib/repositories/ReviewRepository';
 import { NextRequest, NextResponse } from 'next/server';
-import { ReviewRepository } from '../../lib/repositories';
 
 export async function GET(request: NextRequest) {
   try {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 interface Reservation {
   id: number;
@@ -24,10 +24,17 @@ export default function CompanyReservations() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadReservations();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
 
   const loadReservations = async () => {
     try {
@@ -66,10 +73,38 @@ export default function CompanyReservations() {
     }
   };
 
-  const filteredReservations = reservations.filter((r) => {
-    if (filter === 'all') return true;
-    return r.status === filter.toUpperCase();
-  });
+  const filteredReservations = useMemo(() => {
+    return reservations.filter((r) => {
+      if (filter === 'all') return true;
+      return r.status === filter.toUpperCase();
+    });
+  }, [reservations, filter]);
+
+  const totalPages = Math.ceil(filteredReservations.length / itemsPerPage);
+
+  const paginatedReservations = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredReservations.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredReservations, currentPage]);
+
+  const changePage = (page: number) => {
+    setCurrentPage(page);
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  };
+
+  const handleFilterChange = (tab: string) => {
+    setFilter(tab);
+    setCurrentPage(1);
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  };
 
   if (loading) {
     return (
@@ -108,11 +143,11 @@ export default function CompanyReservations() {
           ].map((tab) => (
             <button
               key={tab}
-              onClick={() => setFilter(tab)}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
+              onClick={() => handleFilterChange(tab)}
+              className={`px-4 py-2 rounded-lg font-medium transition-all hover:-top-0.75 relative  ${
                 filter === tab
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-indigo-600 text-white -top-1 relative hover:-top-1'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 '
               }`}
             >
               {tab.replace('_', ' ').charAt(0).toUpperCase() +
@@ -151,7 +186,7 @@ export default function CompanyReservations() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredReservations.length === 0 ? (
+              {paginatedReservations.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
@@ -161,8 +196,8 @@ export default function CompanyReservations() {
                   </td>
                 </tr>
               ) : (
-                filteredReservations.map((reservation) => (
-                  <tr key={reservation.id} className="hover:bg-gray-50">
+                paginatedReservations.map((reservation) => (
+                  <tr key={reservation.id} className="hover:bg-gray-100 transition">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       #{reservation.id}
                     </td>
@@ -224,6 +259,58 @@ export default function CompanyReservations() {
             </tbody>
           </table>
         </div>
+
+        {filteredReservations.length > 0 && (
+          <div className="flex items-center justify-between border-t px-6 py-4 bg-white">
+            <div className="text-sm text-gray-600">
+              Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
+              {Math.min(
+                currentPage * itemsPerPage,
+                filteredReservations.length,
+              )}{' '}
+              of {filteredReservations.length} reservations
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => changePage(Math.max(currentPage - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 rounded-md border text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 cursor-pointer  relative disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from(
+                  { length: totalPages },
+                  (_, index) => index + 1,
+                ).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => changePage(page)}
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      currentPage === page
+                        ? 'bg-indigo-600 text-white'
+                        : 'border text-gray-700 bg-white hover:bg-gray-100 cursor-pointer hover:-top-0.5 relative'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() =>
+                  changePage(Math.min(currentPage + 1, totalPages))
+                }
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 rounded-md border text-sm font-medium text-gray-700 bg-white hover:bg-gray-100 cursor-pointer  relative disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

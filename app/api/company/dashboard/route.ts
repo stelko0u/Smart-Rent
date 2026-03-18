@@ -4,8 +4,8 @@ import {
   UserRepository,
   CompanyRepository,
   CarRepository,
-} from '../../../lib/repositories';
-import { query } from '../../../lib/db';
+} from '../../../../lib/repositories';
+import { query } from '../../../../lib/db';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';

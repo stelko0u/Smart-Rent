@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Modal from 'react-modal';
-import { Car } from '@/app/types/database';
+import { Car } from '@/types/database';
 
 interface EditCarModalProps {
   car: Car;

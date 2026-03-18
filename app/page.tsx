@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Sidebar from './components/layouts/Sidebar';
-import MobileTopBar from './components/layouts/MobileTopBar';
-import Hero from './components/Hero/Hero';
-import FeaturedGrid from './components/Featured/Featured';
+import Sidebar from '../components/layouts/Sidebar';
+import MobileTopBar from '../components/layouts/MobileTopBar';
+import Hero from '../components/Hero/Hero';
+import FeaturedGrid from '../components/Featured/Featured';
 
 export default function HomePage() {
   const [query, setQuery] = useState('');

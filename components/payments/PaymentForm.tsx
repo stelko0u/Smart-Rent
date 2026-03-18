@@ -72,7 +72,10 @@ export default function CheckoutForm({
       setProcessing(false);
     } else if (result.paymentIntent?.status === 'succeeded') {
       console.log('✅ Payment succeeded');
-      router.push(`/payment/success?reservationId=${reservationId}`);
+      // ВАЖНО: Добавете payment_intent ID в URL-то
+      router.push(
+        `/payment/success?reservationId=${reservationId}&payment_intent=${result.paymentIntent.id}&redirect_status=succeeded`,
+      );
     }
   };
 

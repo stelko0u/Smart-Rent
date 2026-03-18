@@ -1,10 +1,8 @@
 import React from 'react';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import AdminShell from '../components/admin/AdminShell';
-import { getMe } from '../lib/auth';
-
-
+import AdminShell from '../../components/admin/AdminShell';
+import { getMe } from '../../lib/auth';
 
 export default async function AdminPage() {
   const me = await getMe();

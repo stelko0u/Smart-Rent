@@ -1,6 +1,6 @@
 'use client';
 
-import SignInForm from '../components/auth/SignInForm';
+import SignInForm from '../../components/auth/SignInForm';
 import authbg from '../../public/authbg.jpg';
 
 export default function SignInPage() {

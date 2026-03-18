@@ -1,4 +1,4 @@
-import SignUpForm from '../components/auth/SignUpForm';
+import SignUpForm from '../../components/auth/SignUpForm';
 import authbg from '../../public/authbg.jpg';
 
 export default function SignUpPage() {

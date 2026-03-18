@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthError, requireAuthUserFromRequest } from '../../../lib/auth';
+import { AuthError, requireAuthUserFromRequest } from '../../../../lib/auth';
 
 export async function GET(req: NextRequest) {
   try {

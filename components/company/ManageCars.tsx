@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Car } from '@/app/types/database';
+import { Car } from '@/types/database';
 import EditCarModal from '../modals/EditCarModal';
 import DeleteCarModal from '../modals/DeleteCarModal';
 import { toast } from 'react-hot-toast';

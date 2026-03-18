@@ -4,7 +4,8 @@ import jwt, {
   JsonWebTokenError,
   TokenExpiredError,
 } from 'jsonwebtoken';
-import { UserRepository } from '../../../lib/repositories';
+import { UserRepository } from '@/lib/repositories/userRepository';
+
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';

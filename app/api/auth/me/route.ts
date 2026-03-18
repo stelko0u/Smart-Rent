@@ -4,7 +4,7 @@ import jwt, {
   JsonWebTokenError,
   TokenExpiredError,
 } from 'jsonwebtoken';
-import { UserRepository } from '../../../lib/repositories';
+import { UserRepository } from '@/lib/repositories/userRepository';
 
 export const runtime = 'nodejs';
 

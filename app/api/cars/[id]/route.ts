@@ -1,5 +1,6 @@
+import { CarRepository } from '@/lib/repositories/CarRepository';
+import { CompanyRepository } from '@/lib/repositories/CompanyRepository';
 import { NextResponse } from 'next/server';
-import { CarRepository, CompanyRepository } from '../../../lib/repositories';
 
 export async function GET(
   req: Request,

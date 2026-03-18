@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import AngleLeft from '../../components/icons/AngleLeft';
-import AngleRight from '../../components/icons/AngleRight';
+import AngleLeft from '../icons/AngleLeft';
+import AngleRight from '../icons/AngleRight';
 import ReactModal from 'react-modal';
 import { Xmark } from '../icons';
 

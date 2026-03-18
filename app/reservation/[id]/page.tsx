@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Calendar from '../../components/reservations/Calendar';
-import { useCurrentUser } from '../../hooks/useCurrentUser';
+import Calendar from '../../../components/reservations/Calendar';
+import { useCurrentUser } from '../../../hooks/useCurrentUser';
+import { differenceInCalendarDays } from 'date-fns';
 
 interface Car {
   id: number;
@@ -89,14 +90,16 @@ export default function ReservationPage() {
 
   const calculateDays = () => {
     if (!selectedStartDate || !selectedEndDate) return 0;
-    const diff = selectedEndDate.getTime() - selectedStartDate.getTime();
-    return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
+    return differenceInCalendarDays(selectedEndDate, selectedStartDate) + 1;
   };
 
   const calculateTotal = () => {
     if (!car) return 0;
     return calculateDays() * car.pricePerDay;
   };
+
+  const days = calculateDays();
+  const total = calculateTotal();
 
   const handleContinue = async () => {
     if (
@@ -165,9 +168,6 @@ export default function ReservationPage() {
       </div>
     );
   }
-
-  const days = calculateDays();
-  const total = calculateTotal();
 
   return (
     <div className="min-h-screen bg-gray-100 py-10 px-4">

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { carService } from '../../lib/api';
+import { carService } from '../../../lib/api';
 
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const companyId = url.searchParams.get('companyId');
     const id = url.searchParams.get('id');
-    
+
     if (id) {
       // Get single car by ID
       const car = await carService.getById(Number(id));
@@ -24,10 +24,9 @@ export async function GET(req: Request) {
     console.error('GET /api/cars error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch cars' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
 
 const a = 1;

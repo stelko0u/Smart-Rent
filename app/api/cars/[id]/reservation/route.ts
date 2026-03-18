@@ -1,5 +1,5 @@
+import { ReservationRepository } from '@/lib/repositories/ReservationRepository';
 import { NextResponse } from 'next/server';
-import { ReservationRepository } from '../../../../lib/repositories';
 
 export async function GET(
   req: Request,

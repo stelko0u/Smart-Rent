@@ -5,7 +5,9 @@ import jwt, {
   TokenExpiredError,
 } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { UserRepository, CompanyRepository } from '../../../lib/repositories';
+import { UserRepository } from '@/lib/repositories/userRepository';
+import { CompanyRepository } from '@/lib/repositories/CompanyRepository';
+
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';

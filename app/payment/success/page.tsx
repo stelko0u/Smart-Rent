@@ -13,40 +13,29 @@ export default function PaymentSuccess() {
 
   useEffect(() => {
     const confirmPayment = async () => {
-      // Get URL params directly from window.location
       const urlParams = new URLSearchParams(window.location.search);
       const paymentIntentId = urlParams.get('payment_intent');
       const redirectStatus = urlParams.get('redirect_status');
+      const reservationIdParam = urlParams.get('reservationId');
 
       console.log('=== Payment Success Page ===');
       console.log('Full URL:', window.location.href);
-      console.log('URL Search:', window.location.search);
       console.log('Payment intent ID:', paymentIntentId);
       console.log('Redirect status:', redirectStatus);
+      console.log('Reservation ID:', reservationIdParam);
 
+      // CHANGE: Проверка за payment_intent също
       if (!paymentIntentId) {
-        console.error('No payment intent ID found in URL');
-        console.error('URL params:', Array.from(urlParams.entries()));
         setStatus('error');
-        setMessage(
-          'Payment information is missing. Please check your reservations in your account.',
-        );
+        setMessage('Payment information is missing.');
         return;
       }
 
-      if (redirectStatus !== 'succeeded') {
-        console.error('Payment not succeeded, status:', redirectStatus);
+      if (!reservationIdParam) {
         setStatus('error');
-        setMessage(
-          `Payment failed. Status: ${redirectStatus || 'unknown'}`,
-        );
+        setMessage('Reservation information is missing.');
         return;
       }
-
-      console.log(
-        'Calling /api/payments/confirm with paymentIntentId:',
-        paymentIntentId,
-      );
 
       try {
         const response = await fetch('/api/payments/confirm', {
@@ -55,12 +44,15 @@ export default function PaymentSuccess() {
             'Content-Type': 'application/json',
           },
           credentials: 'include',
-          body: JSON.stringify({ paymentIntentId }),
+          body: JSON.stringify({
+            reservationId: Number(reservationIdParam),
+            paymentIntentId,
+            redirectStatus,
+          }),
         });
 
-        console.log('Response status:', response.status);
         const data = await response.json();
-        console.log('Response data:', data);
+        console.log('Confirm response:', data);
 
         if (data.ok) {
           setStatus('success');
@@ -69,12 +61,10 @@ export default function PaymentSuccess() {
           );
           setReservationId(data.reservationId);
 
-          // Redirect to profile after 3 seconds
           setTimeout(() => {
             router.push('/profile');
           }, 3000);
         } else {
-          console.error('Confirm API returned error:', data);
           setStatus('error');
           setMessage(data.error || 'Error confirming payment');
         }
@@ -85,12 +75,7 @@ export default function PaymentSuccess() {
       }
     };
 
-    // Wait for client-side hydration
-    const timer = setTimeout(() => {
-      confirmPayment();
-    }, 100);
-
-    return () => clearTimeout(timer);
+    confirmPayment();
   }, [router]);
 
   return (

@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import {
-  ReservationRepository,
-  PaymentsRepository,
-  CarRepository,
-  CompanyRepository,
-} from '../../../lib/repositories';
-import { sendReservationConfirmation } from '../../../lib/mail';
+
+import { sendReservationConfirmation } from '../../../../lib/mail';
+import { ReservationRepository } from '@/lib/repositories/ReservationRepository';
+import { CarRepository } from '@/lib/repositories/CarRepository';
+import { CompanyRepository } from '@/lib/repositories/CompanyRepository';
+import { PaymentsRepository } from '@/lib/repositories/PaymentsRepository';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-12-15.clover',

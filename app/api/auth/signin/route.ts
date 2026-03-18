@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { UserRepository } from '../../../lib/repositories';
+import { UserRepository } from '@/lib/repositories/userRepository';
 
 export const runtime = 'nodejs';
 
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       );
     }
 
-const user = await UserRepository.findByEmail(String(email).toLowerCase());
+    const user = await UserRepository.findByEmail(String(email).toLowerCase());
 
     if (!user || !user.password) {
       return NextResponse.json(

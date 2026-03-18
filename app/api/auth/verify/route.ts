@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { UserRepository } from '../../../lib/repositories';
+import { UserRepository } from '@/lib/repositories/userRepository';
 
 export const runtime = 'nodejs';
 
@@ -36,7 +36,7 @@ export async function GET(req: Request) {
       );
     }
 
-const user = await UserRepository.findById(userId);
+    const user = await UserRepository.findById(userId);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }

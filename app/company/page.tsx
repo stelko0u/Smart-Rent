@@ -1,5 +1,5 @@
-import CompanyArea from '../components/company/CompanyArea';
-import { getMe } from '../lib/auth';
+import CompanyArea from '../../components/company/CompanyArea';
+import { getMe } from '../../lib/auth';
 import { redirect } from 'next/navigation';
 
 export default async function CompanyPage() {

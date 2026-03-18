@@ -2,11 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import ProfileSettings from '../components/profile/ProfileSettings';
-import RentedCars from '../components/profile/RentedCars';
-import UserReviews from '../components/profile/UserReviews';
-import LikedCars from '../components/profile/LikedCars';
-import ProfileSidebar from '../components/profile/ProfileSidebar';
+import ProfileSettings from '../../components/profile/ProfileSettings';
+import RentedCars from '../../components/profile/RentedCars';
+import UserReviews from '../../components/profile/UserReviews';
+import LikedCars from '../../components/profile/LikedCars';
+import ProfileSidebar from '../../components/profile/ProfileSidebar';
 
 interface User {
   id: number;

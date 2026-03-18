@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { OfficeRepository } from '../../../lib/repositories';
+import { OfficeRepository } from '../../../../lib/repositories';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-const office = await OfficeRepository.create({
+    const office = await OfficeRepository.create({
       name,
       address,
       latitude,

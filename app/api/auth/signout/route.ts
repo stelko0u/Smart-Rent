@@ -1,24 +1,4 @@
-// import { NextResponse } from "next/server";
 
-// export async function POST(_: Request) {
-//   try {
-//     const res = NextResponse.json({ message: "Signed out" }, { status: 200 });
-
-//     // Clear the auth cookie (set empty value and maxAge: 0)
-//     res.cookies.set("token", "", {
-//       httpOnly: true,
-//       secure: process.env.NODE_ENV === "production",
-//       sameSite: "lax",
-//       path: "/",
-//       maxAge: 0,
-//     });
-
-//     return res;
-//   } catch (err: any) {
-//     console.error("Signout error:", err);
-//     return NextResponse.json({ message: err?.message || "Sign out failed" }, { status: 500 });
-//   }
-// }
 import { NextResponse } from "next/server";
 
 export async function POST() {

@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { CarRepository } from '../../../lib/repositories';
 import type {
   Car,
   CarFormValues,
   CarType,
   TransmissionType,
   FuelType,
-} from '../../../types/types';
-import { query } from '@/app/lib/db';
-import { getAuthUser } from '@/app/lib/auth';
+} from '../../../../types/types';
+import { query } from '@/lib/db';
+import { getAuthUser } from '@/lib/auth';
+import { CarRepository } from '@/lib/repositories/CarRepository';
 
 export const runtime = 'nodejs';
 

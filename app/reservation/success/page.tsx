@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Successfully from '@/app/components/icons/Successfully';
+import Successfully from '../../../components/icons/Successfully';
 
 function ReservationSuccessContent() {
   const router = useRouter();
