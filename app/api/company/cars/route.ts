@@ -78,39 +78,50 @@ function mapFuelType(input?: string | null): FuelType | null {
   return map[v] ?? null;
 }
 
-// POST handler
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const meRes = await fetchMe(req);
-    if (!meRes.ok) {
-      const text = await meRes.text().catch(() => '');
-      console.error('/api/auth/me failed:', meRes.status, text);
+    const user = await getAuthUser();
+
+    if (!user || user.role !== 'COMPANY') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const ct = meRes.headers.get('content-type') ?? '';
-    if (!ct.includes('application/json')) {
-      console.error('/api/auth/me non-json:', await meRes.text());
+    if (!user.companyId) {
       return NextResponse.json(
-        { error: 'Unexpected auth response' },
-        { status: 500 },
+        { error: 'Missing company ID' },
+        { status: 400 },
       );
     }
-    const me = await meRes.json();
 
-    const rawRole = me?.role ?? me?.user?.role ?? null;
-    const role =
-      typeof rawRole === 'string' ? rawRole.toLowerCase().trim() : null;
-    if (role !== 'company')
+    const cars = await CarRepository.findManyByCompanyId(user.companyId);
+
+    return NextResponse.json({ cars }, { status: 200 });
+  } catch (err) {
+    console.error('company/cars GET error:', err);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const user = await getAuthUser();
+
+    if (!user || user.role !== 'COMPANY') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
-    const companyId = me?.company?.id ?? me?.user?.companyId ?? null;
-    const ownerId = me?.user?.id ?? null;
-    if (!companyId || !ownerId)
+    const companyId = user.companyId ?? null;
+    const ownerId = user.id ?? null;
+
+    if (!companyId || !ownerId) {
       return NextResponse.json(
         { error: 'Missing company or owner id' },
         { status: 400 },
       );
+    }
 
     const contentType = (req.headers.get('content-type') || '').toLowerCase();
 
@@ -144,8 +155,9 @@ export async function POST(req: NextRequest) {
       officeId = form.get('officeId') ? Number(form.get('officeId')) : null;
 
       const fileEntries = form.getAll('images');
-      if (fileEntries.length > MAX_FILES)
+      if (fileEntries.length > MAX_FILES) {
         return NextResponse.json({ error: 'Too many files' }, { status: 400 });
+      }
 
       const uploadDir = path.join(
         process.cwd(),
@@ -157,22 +169,25 @@ export async function POST(req: NextRequest) {
       ensureDir(uploadDir);
 
       for (const ent of fileEntries) {
-        const file: any = ent;
+        const file = ent as File;
         if (!file || !file.type || !ALLOWED.includes(file.type)) continue;
+
         const arrayBuf = await file.arrayBuffer();
         const uint8 = new Uint8Array(arrayBuf);
         const ext = file.type === 'image/png' ? '.png' : '.jpg';
         const fileName = `${Date.now()}-${Math.random()
           .toString(36)
           .slice(2, 8)}${ext}`;
+
         fs.writeFileSync(path.join(uploadDir, fileName), uint8);
         images.push(`/uploads/company/${companyId}/${fileName}`);
       }
     } else {
       let body: CarFormValues | null = null;
+
       try {
         body = (await req.json()) as CarFormValues;
-      } catch (err) {
+      } catch {
         return NextResponse.json(
           { error: 'Invalid JSON body' },
           { status: 400 },
@@ -190,8 +205,8 @@ export async function POST(req: NextRequest) {
 
       carType = mapCarType((body as any)?.carType ?? null);
       transmissionType =
-        mapTransmissionType((body as any).transmission ?? null) ||
-        mapTransmissionType((body as any).transmissionType ?? null);
+        mapTransmissionType((body as any)?.transmission ?? null) ||
+        mapTransmissionType((body as any)?.transmissionType ?? null);
       fuelType = mapFuelType((body as any)?.fuelType ?? null);
 
       officeId =
@@ -268,77 +283,35 @@ export async function POST(req: NextRequest) {
       images,
       ownerId: Number(ownerId),
       companyId: Number(companyId),
-      carType: carType as CarType,
-      transmissionType: transmissionType as TransmissionType,
-      fuelType: fuelType as FuelType,
+      carType,
+      transmissionType,
+      fuelType,
       officeId: officeId ?? undefined,
     });
 
-    // Return only the fields we want to expose
-    const carResponse = {
-      id: created.id,
-      make: created.make,
-      model: created.model,
-      year: created.year,
-      pricePerDay: created.pricePerDay,
-      power: created.power,
-      displacement: created.displacement,
-      images: created.images,
-      carType: created.carType,
-      transmissionType: created.transmissionType,
-      fuelType: created.fuelType,
-      officeId: created.officeId,
-      companyId: created.companyId,
-      createdAt: created.createdAt,
-    };
-
-    return NextResponse.json({ car: carResponse }, { status: 201 });
+    return NextResponse.json(
+      {
+        car: {
+          id: created.id,
+          make: created.make,
+          model: created.model,
+          year: created.year,
+          pricePerDay: created.pricePerDay,
+          power: created.power,
+          displacement: created.displacement,
+          images: created.images,
+          carType: created.carType,
+          transmissionType: created.transmissionType,
+          fuelType: created.fuelType,
+          officeId: created.officeId,
+          companyId: created.companyId,
+          createdAt: created.createdAt,
+        },
+      },
+      { status: 201 },
+    );
   } catch (err) {
     console.error('company/cars POST error:', err);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
-  }
-}
-
-// // GET handler
-// export async function GET(req: NextRequest) {
-//   try {
-//     const cars = await CarRepository.findMany();
-
-//     return NextResponse.json({ cars }, { status: 200 });
-//   } catch (err) {
-//     console.error('company/cars GET error:', err);
-//     return NextResponse.json(
-//       { error: 'Internal server error' },
-//       { status: 500 },
-//     );
-//   }
-// }
-export async function GET(req: NextRequest) {
-  try {
-    const meRes = await fetchMe(req);
-    if (!meRes.ok) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const me = await meRes.json();
-    const companyId = me?.company?.id ?? me?.user?.companyId ?? null;
-
-    if (!companyId) {
-      return NextResponse.json(
-        { error: 'Missing company ID' },
-        { status: 400 },
-      );
-    }
-
-    // Fetch cars only for the current company
-    const cars = await CarRepository.findManyByCompanyId(companyId);
-
-    return NextResponse.json({ cars }, { status: 200 });
-  } catch (err) {
-    console.error('company/cars GET error:', err);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },
@@ -402,22 +375,14 @@ export async function DELETE(request: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const meRes = await fetchMe(req);
-    if (!meRes.ok) {
+    const user = await getAuthUser();
+
+    if (!user || user.role !== 'COMPANY') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const me = await meRes.json();
-    const rawRole = me?.role ?? me?.user?.role ?? null;
-    const role =
-      typeof rawRole === 'string' ? rawRole.toLowerCase().trim() : null;
-
-    if (role !== 'company') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const companyId = me?.company?.id ?? me?.user?.companyId ?? null;
-    const ownerId = me?.user?.id ?? null;
+    const companyId = user.companyId ?? null;
+    const ownerId = user.id ?? null;
 
     if (!companyId || !ownerId) {
       return NextResponse.json(
@@ -426,7 +391,6 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // Get car ID from query params
     const { searchParams } = new URL(req.url);
     const carId = searchParams.get('id');
 
@@ -434,7 +398,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Missing car ID' }, { status: 400 });
     }
 
-    // Verify car belongs to this company
     const existingCar = await CarRepository.findById(Number(carId));
     if (!existingCar) {
       return NextResponse.json({ error: 'Car not found' }, { status: 404 });
@@ -444,10 +407,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Parse request body
     const body = await req.json();
-
-    // Prepare update data with proper typing
     const updateData: Partial<Omit<Car, 'id' | 'createdAt' | 'updatedAt'>> = {};
 
     if (body.make !== undefined) updateData.make = String(body.make).trim();
@@ -463,13 +423,11 @@ export async function PATCH(req: NextRequest) {
       updateData.transmissionType = body.transmissionType;
     if (body.fuelType !== undefined) updateData.fuelType = body.fuelType;
 
-    // Handle officeId - convert null to undefined
     if (body.officeId !== undefined) {
       updateData.officeId =
         body.officeId === null ? undefined : Number(body.officeId);
     }
 
-    // Update the car
     const updated = await CarRepository.update(Number(carId), updateData);
 
     if (!updated) {

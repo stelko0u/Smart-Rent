@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   ArrowLeftFromBracket,
@@ -12,67 +12,63 @@ import {
   Plus,
 } from '../icons';
 
-interface CompanyInfo {
-  id: number;
-  name: string;
-  email: string;
-}
-
 type Props = {
-  company: any; // Или конкретен тип, ако е дефиниран
+  company: any;
   activeTab: string;
   onTabChange: React.Dispatch<React.SetStateAction<string>>;
+  locked?: boolean;
 };
 
-export default function CompanySidebar({ company }: Props) {
+export default function CompanySidebar({ company, locked }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
-
-  // Get the current tab from the query parameter
   const currentTab = searchParams.get('tab') || 'dashboard';
 
-  // Menu items
   const menuItems = [
     {
       id: 'dashboard',
       label: 'Dashboard',
       icon: <ChartLine className="w-5 h-5" />,
-      href: '?tab=dashboard',
     },
     {
       id: 'reservations',
       label: 'Reservations',
       icon: <Clipboard className="w-5 h-5" />,
-      href: '?tab=reservations',
     },
     {
       id: 'payments',
       label: 'Payments',
       icon: <BadgeDollar className="w-5 h-5" />,
-      href: '?tab=payments',
+    },
+    {
+      id: 'invoices',
+      label: 'Invoices',
+      icon: <Clipboard className="w-5 h-5" />,
+    },
+    {
+      id: 'reports',
+      label: 'Reports',
+      icon: <ChartLine className="w-5 h-5" />,
     },
     {
       id: 'manage-cars',
       label: 'Manage Cars',
       icon: <Cars className="w-5 h-5" />,
-      href: '?tab=manage-cars',
     },
     {
       id: 'add-car',
       label: 'Add Car',
       icon: <Plus className="w-5 h-5" />,
-      href: '?tab=add-car',
     },
     {
       id: 'offices',
       label: 'Offices',
       icon: <Building className="w-5 h-5" />,
-      href: '?tab=offices',
     },
   ];
 
-  // Handle tab change
   const handleTabChange = (tab: string) => {
+    if (locked) return;
     router.push(`?tab=${tab}`);
   };
 
@@ -108,10 +104,16 @@ export default function CompanySidebar({ company }: Props) {
           <button
             key={item.id}
             onClick={() => handleTabChange(item.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition mb-1 hover:bg-gray-100 hover:transition hover:scale-105 cursor-pointer ${
-              currentTab === item.id
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition mb-1 ${
+              locked
+                ? 'cursor-not-allowed opacity-50 bg-gray-50 text-gray-400'
+                : 'hover:bg-gray-100 cursor-pointer'
+            } ${
+              currentTab === item.id && !locked
                 ? 'bg-indigo-50 text-indigo-600 font-medium'
-                : 'text-gray-700 hover:bg-gray-50'
+                : !locked
+                  ? 'text-gray-700 hover:bg-gray-50'
+                  : ''
             }`}
           >
             {item.icon}
@@ -123,9 +125,9 @@ export default function CompanySidebar({ company }: Props) {
       <div className="p-4 border-t border-gray-200">
         <a
           href="/"
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition mb-1 text-gray-600 hover:bg-gray-100 hover:transition hover:scale-105 cursor-pointer"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition mb-1 text-gray-600 hover:bg-gray-100 cursor-pointer"
         >
-          <ArrowLeftFromBracket className="w- h-5" />
+          <ArrowLeftFromBracket className="w-5 h-5" />
           Back to Site
         </a>
       </div>

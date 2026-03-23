@@ -1,12 +1,6 @@
 'use client';
-
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
-// Fix for missing marker icons in Leaflet
-
+import dynamic from 'next/dynamic';
 import React, { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
 import ImageSlider from '../../../components/vehicles/ImageSlider';
 import { Car as CarType } from '../../../types/types';
 import Engine from '../../../components/icons/Engine';
@@ -16,13 +10,45 @@ import Car from '../../../components/icons/Car';
 import Cube from '../../../components/icons/Cube';
 import ReviewsList from '../../../components/vehicles/ReviewsList';
 import { getLoggedInUser } from '@/lib/api/userApi';
-import { fetchOfficeByCarId } from '@/lib/api/carApi'; // Import the fetch function
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
+import { fetchOfficeByCarId } from '@/lib/api/carApi';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
+
+function LocationPinIcon({ className = 'w-6 h-6 text-gray-500' }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+      />
+    </svg>
+  );
+}
 
 export default function CarDetailPage() {
+  const CarLocationMap = dynamic(
+    () => import('@/components/vehicles/CarLocationMap'),
+    {
+      ssr: false,
+    },
+  );
+
   const router = useRouter();
   const params = useParams();
   const carId = params?.id as string;
+
   const [car, setCar] = useState<CarType | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,13 +59,10 @@ export default function CarDetailPage() {
     null,
   );
   const [user, setUser] = useState<any | null>(null);
-  const [office, setOffice] = useState<any | null>(null); // State for office details
+  const [office, setOffice] = useState<any | null>(null);
 
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-    iconUrl: require('leaflet/dist/images/marker-icon.png'),
-    shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
-  });
+  const searchParams = useSearchParams();
+  const shouldOpenReviewForm = searchParams.get('review') === '1';
 
   useEffect(() => {
     async function fetchUser() {
@@ -85,7 +108,7 @@ export default function CarDetailPage() {
 
     async function loadOffice() {
       try {
-        const officeData = await fetchOfficeByCarId(Number(carId)); // Fetch office details
+        const officeData = await fetchOfficeByCarId(Number(carId));
         setOffice(officeData);
       } catch (err) {
         console.error('Failed to load office details:', err);
@@ -94,7 +117,7 @@ export default function CarDetailPage() {
 
     loadCar();
     loadReviews();
-    loadOffice(); // Load office details
+    loadOffice();
   }, [carId]);
 
   useEffect(() => {
@@ -168,6 +191,15 @@ export default function CarDetailPage() {
     setCanAddReview(false);
   };
 
+  const locationLabel =
+    office?.city ||
+    office?.town ||
+    office?.municipality ||
+    office?.address ||
+    (office?.latitude && office?.longitude
+      ? `${office.latitude}, ${office.longitude}`
+      : 'N/A');
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -232,6 +264,7 @@ export default function CarDetailPage() {
               {car.make} {car.model}
             </h1>
             <p className="text-xl text-gray-600 mb-6">{car.year}</p>
+
             <div className="mb-6 p-4 bg-indigo-50 rounded-lg">
               <div className="text-3xl font-bold text-indigo-600">
                 €{car.pricePerDay}
@@ -241,10 +274,12 @@ export default function CarDetailPage() {
                 </span>
               </div>
             </div>
+
             <div className="mb-6">
               <h2 className="text-lg font-semibold mb-3 text-gray-600">
                 Specifications
               </h2>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-2">
                   <Car className="text-gray-500 w-6 h-6" />
@@ -252,32 +287,42 @@ export default function CarDetailPage() {
                     {car.carType || 'N/A'}
                   </span>
                 </div>
+
                 <div className="flex items-center gap-2">
                   <Transmission className="text-gray-500 w-6 h-6" />
                   <span className="text-sm text-gray-600">
                     {car.transmissionType || 'N/A'}
                   </span>
                 </div>
+
                 <div className="flex items-center gap-2">
                   <GasPump className="text-gray-500 w-6 h-6" />
                   <span className="text-sm text-gray-600">
                     {car.fuelType || 'N/A'}
                   </span>
                 </div>
+
                 <div className="flex items-center gap-2">
                   <Engine className="text-gray-500 w-6 h-6" />
                   <span className="text-sm text-gray-600">
                     {car.power || 'N/A'} HP
                   </span>
                 </div>
+
                 <div className="flex items-center gap-2">
                   <Cube className="text-gray-500 w-6 h-6" />
                   <span className="text-sm text-gray-600">
                     {car.displacement || 'N/A'} cc
                   </span>
                 </div>
+
+                <div className="flex items-center gap-2">
+                  <LocationPinIcon className="text-gray-500 w-6 h-6" />
+                  <span className="text-sm text-gray-600">{locationLabel}</span>
+                </div>
               </div>
             </div>
+
             {car.company && (
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                 <h3 className="text-sm font-semibold text-gray-700 mb-1">
@@ -286,6 +331,7 @@ export default function CarDetailPage() {
                 <p className="text-gray-900">{car.company.name}</p>
               </div>
             )}
+
             <button
               onClick={() => router.push(`/reservation/${car.id}`)}
               className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition"
@@ -296,28 +342,8 @@ export default function CarDetailPage() {
         </div>
 
         {office && (
-          <div className="mt-8">
-            <h2 className="text-lg font-semibold text-gray-600 mb-4">
-              Office Location
-            </h2>
-            <div className="w-full h-120 bg-gray-200 rounded-lg">
-              {/* Leaflet Map */}
-              <div id="map" className="w-full h-full">
-                <MapContainer
-                  center={[office.latitude, office.longitude]}
-                  zoom={15}
-                  style={{ height: '100%', width: '100%' }}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  />
-                  <Marker position={[office.latitude, office.longitude]}>
-                    <Popup>Office Location: {office.name || 'Unknown'}</Popup>
-                  </Marker>
-                </MapContainer>
-              </div>
-            </div>
+          <div className="my-5">
+            <CarLocationMap lat={office.latitude} lng={office.longitude} />
           </div>
         )}
 
@@ -326,6 +352,7 @@ export default function CarDetailPage() {
             reviews={reviews}
             loading={reviewsLoading}
             canAddReview={canAddReview}
+            initialOpen={shouldOpenReviewForm}
             onSubmitReview={handleSubmitReview}
           />
         </div>

@@ -1,9 +1,8 @@
 'use client';
 import React, { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 
 export default function SignInForm() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
@@ -39,6 +38,7 @@ export default function SignInForm() {
     try {
       const res = await fetch('/api/auth/signin', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
@@ -50,8 +50,7 @@ export default function SignInForm() {
 
       if (!res.ok) {
         if (data?.mustChangePassword && data.redirectTo) {
-          // Пренасочване към страницата за смяна на парола
-          window.location.href = data.redirectTo;
+          window.location.assign(data.redirectTo);
           return;
         }
 
@@ -65,11 +64,12 @@ export default function SignInForm() {
         } else {
           setError((data && data.error) || 'Sign in failed');
         }
+
         setLoading(false);
         return;
       }
 
-      router.replace('/'); // Пренасочване към началната страница
+      window.location.assign(data?.redirectTo || '/');
     } catch (err) {
       console.error('Sign in error:', err);
       setError('Network error');
@@ -80,12 +80,14 @@ export default function SignInForm() {
   const handleResend = async () => {
     setResendStatus('loading');
     setResendError(null);
+
     try {
       const res = await fetch('/api/auth/resend-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
+
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         setResendError(
@@ -94,8 +96,9 @@ export default function SignInForm() {
         setResendStatus('error');
         return;
       }
+
       setResendStatus('success');
-    } catch (err) {
+    } catch {
       setResendError('Failed to resend verification email.');
       setResendStatus('error');
     }
@@ -107,12 +110,14 @@ export default function SignInForm() {
       className="mx-auto w-full max-w-md p-8 bg-white dark:bg-slate-900/80 shadow-xl rounded-xl"
     >
       {error && <div className="text-sm text-red-600 mb-2">{error}</div>}
+
       {verifyNotice && (
         <div className="mb-3 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded p-2">
           Registration successful! Please check your email and verify your
           account before signing in.
         </div>
       )}
+
       {emailNotVerified && (
         <div className="mb-4 p-3 rounded bg-yellow-50 border border-yellow-300 text-yellow-800 text-sm flex flex-col gap-2">
           <span>Your email is not verified. Please check your mailbox.</span>
@@ -126,11 +131,13 @@ export default function SignInForm() {
               ? 'Sending...'
               : 'Send verification email again'}
           </button>
+
           {resendStatus === 'success' && (
             <span className="text-green-700">
               Verification email sent successfully!
             </span>
           )}
+
           {resendStatus === 'error' && (
             <span className="text-red-600">{resendError}</span>
           )}

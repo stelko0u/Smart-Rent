@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 
 import { query } from '../../../../lib/db';
-import { UserRepository } from '@/lib/repository/UserRepository';
 import { CompanyRepository } from '@/lib/repository/CompanyRepository';
+import { UserRepository } from '@/lib/repository/UserRepository';
+import { processCompletedReservationsForReviewEmails } from '@/lib/services/reviews/processCompletedReservationsForReviewEmails';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
@@ -30,35 +31,8 @@ async function getUserFromToken(req: Request) {
 
     const user = await UserRepository.findById(userId);
     return user;
-  } catch (err) {
+  } catch {
     return null;
-  }
-}
-
-async function updateExpiredReservationsForCompany(companyId: number) {
-  const now = new Date();
-
-  try {
-    const result = await query(
-      `UPDATE "Reservation" r
-       SET status = 'COMPLETED', "updatedAt" = NOW()
-       FROM "Car" c
-       WHERE r."carId" = c.id 
-       AND c."companyId" = $2
-       AND r.status IN ('CONFIRMED', 'IN_PROGRESS') 
-       AND r."endDate" < $1 
-       AND r."paymentStatus" = 'PAID'
-       RETURNING r.id`,
-      [now, companyId],
-    );
-
-    if (result.length > 0) {
-      console.log(
-        `Auto-updated ${result.length} company reservations to COMPLETED for company ${companyId}`,
-      );
-    }
-  } catch (err) {
-    console.error('Error updating expired company reservations:', err);
   }
 }
 
@@ -91,10 +65,10 @@ export async function GET(req: Request) {
       );
     }
 
-    // Update expired reservations before fetching
-    await updateExpiredReservationsForCompany(company!.id);
+    await processCompletedReservationsForReviewEmails({
+      companyId: company!.id,
+    });
 
-    // Get all reservations for company cars
     const reservations = await query(
       `SELECT 
         r.*,

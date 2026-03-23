@@ -1,158 +1,133 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { NextRequest, NextResponse } from 'next/server';
+import { jwtVerify } from 'jose';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
+type SessionPayload = {
+  id: number;
+  email: string;
+  role: 'ADMIN' | 'COMPANY' | 'USER';
+  mustChangePassword?: boolean;
+  companyId?: number | null;
+};
 
-// Paths that banned users ARE allowed to access
-const ALLOWED_BANNED_PATHS = [
-  '/api/auth/signout',
-  '/api/auth/me',
+const PUBLIC_PATHS = [
+  '/',
   '/signin',
   '/signup',
-  '/banned',
+  '/forgot-password',
+  '/reset-password',
+  '/review',
 ];
+
+const PUBLIC_PATH_PREFIXES = [
+  '/_next',
+  '/favicon',
+  '/images',
+  '/uploads',
+  '/car', // важно: за /car/[id]
+];
+
+const PUBLIC_API_PREFIXES = [
+  '/api/auth',
+  '/api/cars',
+  '/api/offices',
+  '/api/reviews',
+  '/api/cron/process-review-emails',
+  '/api/dev/test-review-email',
+  '/api/reviews',
+  '/api/review-link',
+  '/api/cron/review-reminders',
+];
+
+function isPublicPath(pathname: string) {
+  return (
+    PUBLIC_PATHS.includes(pathname) ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon') ||
+    pathname.startsWith('/images') ||
+    pathname.startsWith('/uploads') ||
+    PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  );
+}
+
+async function readSession(req: NextRequest): Promise<SessionPayload | null> {
+  const token = req.cookies.get('token')?.value;
+  if (!token) {
+    return null;
+  }
+
+  const secretValue = process.env.JWT_SECRET;
+  if (!secretValue) {
+    return null;
+  }
+
+  try {
+    const secret = new TextEncoder().encode(secretValue);
+    const { payload } = await jwtVerify(token, secret);
+    return payload as unknown as SessionPayload;
+  } catch (err) {
+    console.error('Invalid session token:', err);
+    return null;
+  }
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  /**
-   * ---------------------------
-   * Skip public/static paths
-   * ---------------------------
-   */
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  const session = await readSession(req);
+
+  if (!session) {
+    // if (pathname.startsWith('/api/')) {
+    //   return NextResponse.json(
+    //     { ok: false, error: 'Unauthorized' },
+    //     { status: 401 },
+    //   );
+    // }
+
+    const url = req.nextUrl.clone();
+    url.pathname = '/signin';
+    url.searchParams.set(
+      'callbackUrl',
+      req.nextUrl.pathname + req.nextUrl.search,
+    );
+    return NextResponse.redirect(url);
+  }
+
   if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/static') ||
-    pathname === '/' ||
-    ALLOWED_BANNED_PATHS.some((path) => pathname.startsWith(path))
+    session.mustChangePassword &&
+    pathname !== '/change-temporary-password' &&
+    !pathname.startsWith('/api/auth/change-password')
   ) {
-    return NextResponse.next();
-  }
-
-  /**
-   * ---------------------------
-   * JWT / banned user check
-   * ---------------------------
-   */
-  const token = req.cookies.get(COOKIE_NAME)?.value;
-
-  if (token && JWT_SECRET) {
-    try {
-      const payload = jwt.verify(token, JWT_SECRET) as any;
-
-      if (payload?.banned) {
-        return NextResponse.redirect(new URL('/banned', req.url));
-      }
-    } catch {
-      // Invalid token → ignore and continue
-    }
-  }
-
-  /**
-   * ---------------------------
-   * Role-based route protection
-   * ---------------------------
-   */
-  const isAdminRoute =
-    pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
-
-  const isCompanyRoute =
-    pathname.startsWith('/company') || pathname.startsWith('/api/company');
-
-  if (!isAdminRoute && !isCompanyRoute) {
-    return NextResponse.next();
-  }
-
-  try {
-    const url = new URL('/api/auth/me', req.nextUrl.origin);
-
-    const res = await fetch(url.toString(), {
-      method: 'GET',
-      headers: { cookie: req.headers.get('cookie') ?? '' },
-      cache: 'no-store',
-    });
-
-    if (!res.ok) {
-      if (pathname.startsWith('/api/')) {
-        return new NextResponse(
-          JSON.stringify({ ok: false, error: 'forbidden' }),
-          {
-            status: 403,
-            headers: { 'content-type': 'application/json' },
-          },
-        );
-      }
-
-      return NextResponse.redirect(new URL('/signin', req.nextUrl.origin));
-    }
-
-    const json = await res.json().catch(() => ({}));
-    const user = json?.user ?? null;
-
-    if (!user) {
-      if (pathname.startsWith('/api/')) {
-        return new NextResponse(
-          JSON.stringify({ ok: false, error: 'forbidden' }),
-          {
-            status: 403,
-            headers: { 'content-type': 'application/json' },
-          },
-        );
-      }
-
-      return NextResponse.redirect(new URL('/signin', req.nextUrl.origin));
-    }
-
-    if (isAdminRoute && user.role !== 'ADMIN') {
-      if (pathname.startsWith('/api/')) {
-        return new NextResponse(
-          JSON.stringify({ ok: false, error: 'forbidden' }),
-          {
-            status: 403,
-            headers: { 'content-type': 'application/json' },
-          },
-        );
-      }
-
-      return NextResponse.redirect(new URL('/signin', req.nextUrl.origin));
-    }
-
-    if (isCompanyRoute && user.role !== 'COMPANY') {
-      if (pathname.startsWith('/api/')) {
-        return new NextResponse(
-          JSON.stringify({ ok: false, error: 'forbidden' }),
-          {
-            status: 403,
-            headers: { 'content-type': 'application/json' },
-          },
-        );
-      }
-
-      return NextResponse.redirect(new URL('/signin', req.nextUrl.origin));
-    }
-
-    return NextResponse.next();
-  } catch (err) {
-    console.error('middleware auth error:', err);
-
     if (pathname.startsWith('/api/')) {
-      return new NextResponse(
-        JSON.stringify({ ok: false, error: 'internal_error' }),
-        {
-          status: 500,
-          headers: { 'content-type': 'application/json' },
-        },
+      return NextResponse.json(
+        { ok: false, error: 'password_change_required' },
+        { status: 403 },
       );
     }
 
-    return NextResponse.redirect(new URL('/signin', req.nextUrl.origin));
+    const url = req.nextUrl.clone();
+    url.pathname = '/change-temporary-password';
+    return NextResponse.redirect(url);
   }
+
+  if (pathname.startsWith('/admin') && session.role !== 'ADMIN') {
+    return NextResponse.redirect(new URL('/', req.url));
+  }
+
+  if (
+    pathname.startsWith('/company') &&
+    session.role !== 'COMPANY' &&
+    session.role !== 'ADMIN'
+  ) {
+    return NextResponse.redirect(new URL('/', req.url));
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/((?!.*\\..*|_next).*)'],
 };

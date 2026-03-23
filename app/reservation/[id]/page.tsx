@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { differenceInCalendarDays } from 'date-fns';
+
 import Calendar from '../../../components/reservations/Calendar';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
-import { differenceInCalendarDays } from 'date-fns';
 
 interface Car {
   id: number;
@@ -44,7 +45,7 @@ export default function ReservationPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const { userData, loading: userLoading } = useCurrentUser();
+  const { userData } = useCurrentUser();
 
   useEffect(() => {
     if (!carId) return;
@@ -72,21 +73,26 @@ export default function ReservationPage() {
     }
 
     loadData();
-    if (userData) {
-      const nameParts = userData.name?.split(' ') || [];
-      if (nameParts.length >= 2 && !firstName && !lastName) {
-        setFirstName(nameParts[0]);
-        setLastName(nameParts.slice(1).join(' '));
-      }
-      if (userData.email && !email) {
-        setEmail(userData.email);
-      }
-      // Phone from user profile if available
-      if ((userData as any).phone && !phone) {
-        setPhone((userData as any).phone);
-      }
-    }
   }, [carId]);
+
+  useEffect(() => {
+    if (!userData) return;
+
+    const nameParts = userData.name?.split(' ') || [];
+
+    if (nameParts.length >= 2 && !firstName && !lastName) {
+      setFirstName(nameParts[0]);
+      setLastName(nameParts.slice(1).join(' '));
+    }
+
+    if (userData.email && !email) {
+      setEmail(userData.email);
+    }
+
+    if ((userData as any).phone && !phone) {
+      setPhone((userData as any).phone);
+    }
+  }, [userData, firstName, lastName, email, phone]);
 
   const calculateDays = () => {
     if (!selectedStartDate || !selectedEndDate) return 0;
@@ -114,6 +120,7 @@ export default function ReservationPage() {
       setError('Please fill in all required fields');
       return;
     }
+
     setSubmitting(true);
     setError(null);
 
@@ -140,12 +147,22 @@ export default function ReservationPage() {
         throw new Error(data.error || 'Failed to create reservation');
       }
 
-      // Redirect based on payment method
+      const reservationId = data?.reservation?.id;
+      const nextStep = data?.flow?.nextStep;
+
       if (paymentMethod === 'CARD') {
-        router.push(`/payment/${data.reservation.id}`);
-      } else {
-        router.push(`/reservation/success?id=${data.reservation.id}`);
+        if (nextStep === 'PAYMENT_PAGE') {
+          router.push(`/payment/${reservationId}`);
+          return;
+        }
+
+        router.push(
+          `/reservation/success?id=${reservationId}&step=check-email`,
+        );
+        return;
       }
+
+      router.push(`/reservation/success?id=${reservationId}&step=created`);
     } catch (err: any) {
       setError(err.message || 'Failed to create reservation');
     } finally {
@@ -249,6 +266,7 @@ export default function ReservationPage() {
                     required
                   />
                 </div>
+
                 <div className="flex flex-col">
                   <label className="mb-1 text-sm font-medium text-gray-700">
                     Last Name *
@@ -261,6 +279,7 @@ export default function ReservationPage() {
                     required
                   />
                 </div>
+
                 <div className="flex flex-col md:col-span-2">
                   <label className="mb-1 text-sm font-medium text-gray-700">
                     Email *
@@ -273,6 +292,7 @@ export default function ReservationPage() {
                     required
                   />
                 </div>
+
                 <div className="flex flex-col md:col-span-2">
                   <label className="mb-1 text-sm font-medium text-gray-700">
                     Phone *
@@ -314,7 +334,8 @@ export default function ReservationPage() {
                       Pay Online with Card
                     </div>
                     <div className="text-sm text-gray-500">
-                      Secure online payment with your debit/credit card
+                      First we create the reservation and send you an email.
+                      From the email you continue to payment.
                     </div>
                   </div>
                   <svg
@@ -464,7 +485,7 @@ export default function ReservationPage() {
                   {submitting
                     ? 'Processing...'
                     : paymentMethod === 'CARD'
-                      ? 'Continue to Payment'
+                      ? 'Create Reservation'
                       : 'Confirm Reservation'}
                 </button>
               </>

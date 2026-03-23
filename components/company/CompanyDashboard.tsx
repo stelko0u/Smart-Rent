@@ -12,6 +12,9 @@ interface DashboardStats {
   completedReservations: number;
   totalCars: number;
   maintenancePercent: number;
+  balanceAvailable: number;
+  balancePending: number;
+  moneySource: 'stripe' | 'database';
 }
 
 interface RecentReservation {
@@ -24,6 +27,13 @@ interface RecentReservation {
   status: string;
   paymentStatus: string;
   customerName: string;
+}
+
+function money(value?: number) {
+  return new Intl.NumberFormat('bg-BG', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(Number(value || 0));
 }
 
 export default function CompanyDashboard() {
@@ -42,13 +52,15 @@ export default function CompanyDashboard() {
     try {
       const res = await fetch('/api/company/dashboard', {
         credentials: 'include',
+        cache: 'no-store',
       });
 
-      if (!res.ok) {
-        throw new Error('Failed to load dashboard data');
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || 'Failed to load dashboard data');
       }
 
-      const data = await res.json();
       setStats(data.stats);
       setRecentReservations(data.recentReservations || []);
     } catch (err: any) {
@@ -92,52 +104,72 @@ export default function CompanyDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-        <p className="text-gray-600 mt-1">
-          Overview of your business performance
-        </p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
+          <p className="text-gray-600 mt-1">
+            Stripe-first overview with database fallback
+          </p>
+        </div>
+
+        <div
+          className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+            stats?.moneySource === 'stripe'
+              ? 'bg-green-100 text-green-700'
+              : 'bg-amber-100 text-amber-700'
+          }`}
+        >
+          Source: {stats?.moneySource === 'stripe' ? 'Stripe' : 'Database'}
+        </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-4 gap-6">
         <div className="bg-linear-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium opacity-90">
-              Total Revenue (Paid)
-            </h3>
-            
+            <h3 className="text-sm font-medium opacity-90">Total Revenue</h3>
             <BadgeDollar className="w-8 h-8 opacity-50" />
           </div>
-          <p className="text-3xl font-bold">
-            € {stats?.totalRevenue || '0.00'}
-          </p>
-          <p className="text-sm mt-2 opacity-80">From paid reservations only</p>
+          <p className="text-3xl font-bold">{money(stats?.totalRevenue)}</p>
+          <p className="text-sm mt-2 opacity-80">Successful card payments</p>
         </div>
 
         <div className="bg-white rounded-xl shadow p-6 border border-gray-200">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-gray-600">Platform Fee</h3>
-            <span className="px-2 py-1 bg-red-100 text-red-700 text-s rounded-full font-medium">
-              {stats?.maintenancePercent || 0}%
+            <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-medium">
+              {Number(stats?.maintenancePercent || 0).toFixed(2)}%
             </span>
           </div>
           <p className="text-3xl font-bold text-gray-900">
-            € {stats?.platformFee || '0.00'}
+            {money(stats?.platformFee)}
           </p>
-          <p className="text-sm text-gray-500 mt-2">Platform maintenance fee</p>
+          <p className="text-sm text-gray-500 mt-2">Real Stripe fee totals</p>
         </div>
 
-        <div className="bg-linear-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-gray-600">
+        <div className="bg-linear-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium opacity-90">Your Earnings</h3>
+            <h3 className="text-sm font-medium opacity-90">Net Earnings</h3>
             <div className="p-2 bg-green-700 text-white rounded-full">
-            <Check className="w-5 h-5 opacity-50" />
+              <Check className="w-5 h-5 opacity-80" />
             </div>
           </div>
-          <p className="text-3xl font-bold">
-            € {stats?.companyEarnings || '0.00'}
-          </p>
+          <p className="text-3xl font-bold">{money(stats?.companyEarnings)}</p>
           <p className="text-sm mt-2 opacity-80">After platform fee</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-600">
+              Stripe Balance
+            </h3>
+            <BadgeDollar className="w-7 h-7 text-gray-300" />
+          </div>
+          <p className="text-xl font-bold text-gray-900">
+            Available: {money(stats?.balanceAvailable)}
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Pending: {money(stats?.balancePending)}
+          </p>
         </div>
       </div>
 
@@ -173,7 +205,6 @@ export default function CompanyDashboard() {
         <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-green-100 rounded-lg">
-              
               <Check className="w-5 h-5 text-green-600" />
             </div>
             <div>
@@ -188,7 +219,6 @@ export default function CompanyDashboard() {
         <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-purple-100 rounded-lg">
-            
               <Cars className="w-5 h-5 text-purple-600" />
             </div>
             <div>
@@ -260,12 +290,12 @@ export default function CompanyDashboard() {
                       <div>
                         {new Date(reservation.startDate).toLocaleDateString()}
                       </div>
-                      <div className="text-xs text-gray-400">
-                        to {new Date(reservation.endDate).toLocaleDateString()}
+                      <div>
+                        {new Date(reservation.endDate).toLocaleDateString()}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      €{reservation.totalPrice}
+                      {money(reservation.totalPrice)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
@@ -274,18 +304,8 @@ export default function CompanyDashboard() {
                         {reservation.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        className={`font-medium ${
-                          reservation.paymentStatus === 'PAID'
-                            ? 'text-green-600'
-                            : reservation.paymentStatus === 'PENDING'
-                              ? 'text-yellow-600'
-                              : 'text-gray-600'
-                        }`}
-                      >
-                        {reservation.paymentStatus}
-                      </span>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {reservation.paymentStatus}
                     </td>
                   </tr>
                 ))

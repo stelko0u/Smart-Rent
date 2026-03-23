@@ -26,6 +26,17 @@ export class ReservationRepository {
     return result!;
   }
 
+  static async updateStatus(id: number, status: string) {
+    return queryOne(
+      `
+      UPDATE "Reservation"
+      SET status = $2, "updatedAt" = NOW()
+      WHERE id = $1
+      RETURNING *
+      `,
+      [id, status],
+    );
+  }
   static async update(
     id: number,
     data: Partial<Omit<Reservation, 'id' | 'createdAt'>>,

@@ -1,16 +1,6 @@
 import { cookies } from 'next/headers';
 import HomePageClient from './HomePage';
-
-type Role = 'user' | 'company' | 'admin' | null;
-
-type Car = {
-  id: number;
-  name: string;
-  type: string;
-  pricePerDay: number;
-  img: string;
-  companyName?: string | null;
-};
+import type { HomeCar, Role } from '@/types/home';
 
 function normalizeRole(rawRole: unknown): Role {
   if (typeof rawRole !== 'string') return null;
@@ -70,7 +60,7 @@ async function getAuth() {
   };
 }
 
-async function getCars(): Promise<Car[]> {
+async function getCars(): Promise<HomeCar[]> {
   const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/cars`, {
     cache: 'no-store',
   });
@@ -82,13 +72,52 @@ async function getCars(): Promise<Car[]> {
   const json = await res.json();
   const list = Array.isArray(json.cars) ? json.cars : [];
 
+  console.log('first car from api:', list[0]);
+
   return list.map((c: any) => ({
-    id: c.id,
-    name: `${c.make} ${c.model}`,
-    type: String(c.year ?? ''),
-    pricePerDay: Number(c.pricePerDay ?? 0),
-    img: Array.isArray(c.images) && c.images.length ? c.images[0] : '',
-    companyName: c.company?.name ?? null,
+    id: Number(c.id),
+    name: `${c.make ?? ''} ${c.model ?? ''}`.trim(),
+
+    make: String(c.make ?? ''),
+    model: String(c.model ?? ''),
+
+    bodyType: String(
+      c.bodyType ?? c.body_type ?? c.carBodyType ?? c.category ?? c.type ?? '',
+    ),
+
+    year: Number(c.year ?? c.productionYear ?? 0),
+
+    horsepower: Number(
+      c.horsepower ?? c.hp ?? c.horse_power ?? c.power ?? c.enginePower ?? 0,
+    ),
+
+    transmission: String(
+      c.transmission ?? c.gearbox ?? c.transmissionType ?? c.gearBox ?? '',
+    ),
+
+    fuelType: String(c.fuelType ?? c.fuel_type ?? c.fuel ?? ''),
+
+    location: String(
+      c.location ??
+        c.city ??
+        c.office?.city ??
+        c.office?.name ??
+        c.office?.location ??
+        c.office?.address ??
+        c.company?.city ??
+        c.company?.address ??
+        '',
+    ),
+
+    pricePerDay: Number(c.pricePerDay ?? c.price_per_day ?? 0),
+
+    img:
+      Array.isArray(c.images) && c.images.length
+        ? c.images[0]
+        : (c.imageUrl ?? c.image ?? ''),
+
+    companyName:
+      c.companyName ?? c.company?.name ?? c.owner?.companyName ?? null,
   }));
 }
 

@@ -37,7 +37,6 @@ export default function PaymentPage() {
     const fetchReservation = async () => {
       try {
         setLoading(true);
-        console.log('Fetching reservation:', reservationId);
 
         const reservationResponse = await fetch(
           `/api/reservations/${reservationId}`,
@@ -46,7 +45,6 @@ export default function PaymentPage() {
           },
         );
 
-        console.log('Response status:', reservationResponse.status);
 
         if (!reservationResponse.ok) {
           const errorData = await reservationResponse.json().catch(() => ({}));
@@ -55,14 +53,12 @@ export default function PaymentPage() {
         }
 
         const data = await reservationResponse.json();
-        console.log('Full API response:', data);
 
         if (!data.reservation) {
           throw new Error('No reservation data in response');
         }
 
         setReservation(data.reservation);
-        console.log('Reservation set:', data.reservation);
       } catch (err) {
         console.error('Error loading reservation:', err);
         setError(

@@ -1,48 +1,53 @@
 'use client';
 
 import React from 'react';
-import SignOutButton from '../auth/SignOutButton';
+
+type Props = {
+  active: string;
+  setActive: (value: string) => void;
+  isLoggedIn: boolean;
+  mobileMenuOpen: boolean;
+  setMobileMenuOpen: (value: boolean) => void;
+};
 
 export default function MobileTopBar({
   active,
   setActive,
   isLoggedIn,
-}: {
-  active: string;
-  setActive: (s: string) => void;
-  isLoggedIn: boolean;
-}) {
+  mobileMenuOpen,
+  setMobileMenuOpen,
+}: Props) {
   return (
-    <div className="md:hidden mb-4 flex items-center justify-between">
+    <div className="mb-4 flex items-center justify-between md:hidden">
       <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-linear-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white font-bold">
-          AR
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold">Smart Rent</h2>
-          <p className="text-xs text-gray-500">Drive Safe</p>
-        </div>
-      </div>
-      <div>
-        {isLoggedIn ? (
-          <SignOutButton />
-        ) : (
-          <div className="flex gap-2">
-            <a
-              href="/signin"
-              className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold"
-            >
-              Sign In
-            </a>
-            <a
-              href="/signup"
-              className="px-3 py-2 border border-indigo-600 text-indigo-600 rounded-lg text-sm font-semibold"
-            >
-              Sign Up
-            </a>
+        <button
+          type="button"
+          aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white shadow-sm transition hover:bg-gray-50"
+        >
+          <div className="flex flex-col gap-1.5">
+            <span className="block h-0.5 w-5 bg-gray-800" />
+            <span className="block h-0.5 w-5 bg-gray-800" />
+            <span className="block h-0.5 w-5 bg-gray-800" />
           </div>
-        )}
+        </button>
+
+        <div>
+          <p className="text-xs uppercase tracking-wide text-gray-400">Menu</p>
+          <h1 className="text-base font-semibold capitalize text-gray-900">
+            {active}
+          </h1>
+        </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setActive('home')}
+        className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white"
+      >
+        Home
+      </button>
     </div>
   );
 }

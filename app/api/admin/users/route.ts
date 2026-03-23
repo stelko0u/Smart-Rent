@@ -6,7 +6,7 @@ import jwt, {
 } from 'jsonwebtoken';
 import { UserRepository } from '@/lib/repository/UserRepository';
 import { CompanyRepository } from '@/lib/repository/CompanyRepository';
-
+import { deleteUserDeep } from '@/lib/services/admin/deleteEntity';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
@@ -110,33 +110,34 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const user = await UserRepository.findById(Number(id));
-    if (!user) {
+    await deleteUserDeep(Number(id));
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /api/admin/users error:', err);
+
+    const message = err instanceof Error ? err.message : 'delete_error';
+
+    if (message === 'user_not_found') {
       return NextResponse.json(
         { ok: false, error: 'user_not_found' },
         { status: 404 },
       );
     }
 
-    // Не позволявай изтриване на ADMIN потребители
-    if (user.role === 'ADMIN') {
+    if (message === 'cannot_delete_admin') {
       return NextResponse.json(
         { ok: false, error: 'cannot_delete_admin' },
         { status: 403 },
       );
     }
-    await CompanyRepository.deleteByOwnerId(Number(id));
-    await UserRepository.delete(Number(id));
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error('DELETE /api/admin/users error:', err);
+
     return NextResponse.json(
       { ok: false, error: 'delete_error' },
       { status: 500 },
     );
   }
 }
-
 // PATCH - Ban/Unban потребител
 export async function PATCH(req: Request) {
   const check = await requireAdmin(req);

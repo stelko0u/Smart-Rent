@@ -8,10 +8,38 @@ export const runtime = 'nodejs';
 type ReqBody = {
   email?: string;
   password?: string;
+  remember?: boolean;
 };
 
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
 const JWT_SECRET = process.env.JWT_SECRET;
+
+function normalizeRole(role: unknown): 'USER' | 'ADMIN' | 'COMPANY' | null {
+  if (typeof role !== 'string') return null;
+
+  const value = role.trim().toUpperCase();
+
+  if (value === 'USER' || value === 'ADMIN' || value === 'COMPANY') {
+    return value;
+  }
+
+  if (value === 'MANAGER') {
+    return 'COMPANY';
+  }
+
+  return null;
+}
+
+function getRedirectByRole(role: 'USER' | 'ADMIN' | 'COMPANY' | null) {
+  switch (role) {
+    case 'ADMIN':
+      return '/';
+    case 'COMPANY':
+      return '/';
+    default:
+      return '/signin';
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -24,7 +52,10 @@ export async function POST(req: Request) {
     }
 
     const body = (await req.json()) as ReqBody;
-    const { email, password } = body;
+    const email = String(body.email ?? '')
+      .trim()
+      .toLowerCase();
+    const password = String(body.password ?? '');
 
     if (!email || !password) {
       return NextResponse.json(
@@ -33,7 +64,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await UserRepository.findByEmail(String(email).toLowerCase());
+    const user = await UserRepository.findByEmail(email);
+
     if (user?.mustChangePassword) {
       return NextResponse.json(
         {
@@ -52,10 +84,10 @@ export async function POST(req: Request) {
     }
 
     if (!user.emailVerified) {
-      return new Response(
-        JSON.stringify({
+      return NextResponse.json(
+        {
           error: 'Email not verified. Please check your mailbox.',
-        }),
+        },
         { status: 403 },
       );
     }
@@ -68,22 +100,40 @@ export async function POST(req: Request) {
       );
     }
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, {
-      expiresIn: '7d',
-      subject: String(user.id),
-    });
+    const normalizedRole = normalizeRole(user.role);
+
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: normalizedRole,
+        companyId: user.companyId ?? null,
+      },
+      JWT_SECRET,
+      {
+        expiresIn: '7d',
+        subject: String(user.id),
+      },
+    );
 
     const res = NextResponse.json(
       {
         ok: true,
-        user: { id: user.id, email: user.email, name: user.name ?? null },
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name ?? null,
+          role: normalizedRole,
+          companyId: user.companyId ?? null,
+        },
+        redirectTo: getRedirectByRole(normalizedRole),
       },
       { status: 200 },
     );
 
     res.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
       maxAge: 7 * 24 * 60 * 60,

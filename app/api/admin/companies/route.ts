@@ -80,7 +80,6 @@ async function requireAdmin(req: Request) {
   }
 }
 
-// GET - Извличане на всички компании
 export async function GET(req: Request) {
   const check = await requireAdmin(req);
   if (!check.ok) return check.resp;
@@ -169,110 +168,7 @@ export async function POST(req: Request) {
     );
   }
 }
-// POST - Създаване на нова компания
-// export async function POST(req: Request) {
-//   const check = await requireAdmin(req);
-//   if (!check.ok) return check.resp;
 
-//   try {
-//     const body = await req.json();
-//     const { name, email, maintenancePercent = 0, password } = body;
-
-//     if (!name || !email || !password) {
-//       return NextResponse.json(
-//         { ok: false, error: 'name_email_password_required' },
-//         { status: 400 },
-//       );
-//     }
-
-//     const m = Number(maintenancePercent);
-//     if (!Number.isFinite(m) || m < 0 || m > 100) {
-//       return NextResponse.json(
-//         { ok: false, error: 'invalid_maintenance_percent' },
-//         { status: 400 },
-//       );
-//     }
-
-//     // Проверка дали имейлът вече съществува
-//     const existingUser = await UserRepository.findByEmail(email);
-//     if (existingUser) {
-//       return NextResponse.json(
-//         { ok: false, error: 'email_already_exists' },
-//         { status: 409 },
-//       );
-//     }
-
-//     const existingCompany = await CompanyRepository.findByEmail(email);
-//     if (existingCompany) {
-//       return NextResponse.json(
-//         { ok: false, error: 'company_email_already_exists' },
-//         { status: 409 },
-//       );
-//     }
-
-//     // Хеширане на паролата
-//     const hashed = await bcrypt.hash(password, 10);
-
-//     // Създаване на потребител за компанията
-//     const user = await UserRepository.create({
-//       email,
-//       password: hashed,
-//       name: name,
-//       role: 'COMPANY',
-//       emailVerified: true,
-//     });
-
-//     try {
-//       // Създаване на компанията
-//       const company = await CompanyRepository.create({
-//         ownerId: user.id,
-//         name,
-//         email,
-//         maintenancePercent: m,
-
-//       });
-
-//       // Обновяване на потребителя с companyId (ако е необходимо)
-//       if (user.companyId !== company.id) {
-//         await UserRepository.update(user.id, { companyId: company.id });
-//       }
-
-//       return NextResponse.json(
-//         {
-//           ok: true,
-//           company: {
-//             id: company.id,
-//             name: company.name,
-//             email: company.email,
-//             maintenancePercent: company.maintenancePercent,
-//             ownerId: company.ownerId,
-//           },
-//         },
-//         { status: 201 },
-//       );
-//     } catch (companyErr) {
-//       // Rollback - изтриване на потребителя, ако създаването на компанията не успее
-//       try {
-//         await UserRepository.delete(user.id);
-//       } catch (delErr) {
-//         console.error('Failed to rollback user creation:', delErr);
-//       }
-//       console.error('Company creation failed:', companyErr);
-//       return NextResponse.json(
-//         { ok: false, error: 'company_creation_failed' },
-//         { status: 500 },
-//       );
-//     }
-//   } catch (err) {
-//     console.error('POST /api/admin/companies error:', err);
-//     return NextResponse.json(
-//       { ok: false, error: 'server_error' },
-//       { status: 500 },
-//     );
-//   }
-// }
-
-// PATCH - Актуализиране на компания
 export async function PATCH(req: Request) {
   const check = await requireAdmin(req);
   if (!check.ok) return check.resp;
@@ -299,7 +195,6 @@ export async function PATCH(req: Request) {
     }
 
     if (email !== undefined) {
-      // Проверка дали новият имейл не е зает от друга компания
       const existingCompany = await CompanyRepository.findByEmail(email);
       if (existingCompany && existingCompany.id !== Number(id)) {
         return NextResponse.json(
@@ -340,51 +235,11 @@ export async function PATCH(req: Request) {
   }
 }
 
-// DELETE - Изтриване на компания
-// export async function DELETE(req: Request) {
-//   const check = await requireAdmin(req);
-//   if (!check.ok) return check.resp;
 
-//   try {
-//     const body = await req.json();
-//     const { id } = body;
 
-//     if (!id) {
-//       return NextResponse.json(
-//         { ok: false, error: 'id_required' },
-//         { status: 400 },
-//       );
-//     }
+import { deleteCompanyDeep } from '@/lib/services/admin/deleteEntity';
 
-//     const company = await CompanyRepository.findById(Number(id));
-//     if (!company) {
-//       return NextResponse.json(
-//         { ok: false, error: 'company_not_found' },
-//         { status: 404 },
-//       );
-//     }
-
-//     // Изтриване на компанията
-//     await CompanyRepository.delete(Number(id));
-
-//     // Опит за изтриване на owner потребителя
-//     if (company.ownerId) {
-//       try {
-//         await UserRepository.delete(company.ownerId);
-//       } catch (err) {
-//         console.warn('Failed to delete company owner user:', err);
-//       }
-//     }
-
-//     return NextResponse.json({ ok: true });
-//   } catch (err) {
-//     console.error('DELETE /api/admin/companies error:', err);
-//     return NextResponse.json(
-//       { ok: false, error: 'delete_error' },
-//       { status: 500 },
-//     );
-//   }
-// }
+// ...
 
 export async function DELETE(req: Request) {
   const check = await requireAdmin(req);
@@ -413,23 +268,29 @@ export async function DELETE(req: Request) {
       | string
       | undefined;
 
-    await CompanyRepository.delete(Number(id));
+    await deleteCompanyDeep(Number(id));
 
     if (stripeAccountId) {
-      await rollbackStripeAccount(stripeAccountId);
-    }
-
-    if (company.ownerId) {
       try {
-        await UserRepository.delete(company.ownerId);
-      } catch (err) {
-        console.warn('Failed to delete company owner user:', err);
+        await rollbackStripeAccount(stripeAccountId);
+      } catch (stripeErr) {
+        console.warn('Stripe rollback failed:', stripeErr);
       }
     }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('DELETE /api/admin/companies error:', err);
+
+    const message = err instanceof Error ? err.message : 'delete_error';
+
+    if (message === 'company_not_found') {
+      return NextResponse.json(
+        { ok: false, error: 'company_not_found' },
+        { status: 404 },
+      );
+    }
+
     return NextResponse.json(
       { ok: false, error: 'delete_error' },
       { status: 500 },

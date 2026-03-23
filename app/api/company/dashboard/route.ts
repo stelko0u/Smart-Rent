@@ -1,78 +1,18 @@
 import { NextResponse } from 'next/server';
-import jwt, { JwtPayload } from 'jsonwebtoken';
-
-import { query } from '../../../../lib/db';
-import { UserRepository } from '@/lib/repository/UserRepository';
+import { AuthError, requireAuthUserFromRequest } from '@/lib/auth';
+import { query } from '@/lib/db';
 import { CompanyRepository } from '@/lib/repository/CompanyRepository';
 import { CarRepository } from '@/lib/repository/CarRepository';
-
-const JWT_SECRET = process.env.JWT_SECRET;
-const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
-
-function getTokenFromRequest(req: Request) {
-  const auth = req.headers.get('authorization');
-  if (auth?.startsWith('Bearer ')) return auth.substring(7).trim();
-  const cookieHeader = req.headers.get('cookie') || '';
-  const match = cookieHeader.match(
-    new RegExp(`(^|;\\s*)${COOKIE_NAME}=([^;]+)`),
-  );
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
-async function getUserFromToken(req: Request) {
-  if (!JWT_SECRET) return null;
-  const token = getTokenFromRequest(req);
-  if (!token) return null;
-
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    const userId = Number(payload.userId ?? payload.sub);
-    if (!userId || isNaN(userId)) return null;
-
-    const user = await UserRepository.findById(userId);
-    return user;
-  } catch (err) {
-    return null;
-  }
-}
-
-async function updateExpiredReservationsForCompany(companyId: number) {
-  const now = new Date();
-
-  try {
-    const result = await query(
-      `UPDATE "Reservation" r
-       SET status = 'COMPLETED', "updatedAt" = NOW()
-       FROM "Car" c
-       WHERE r."carId" = c.id 
-       AND c."companyId" = $2
-       AND r.status IN ('CONFIRMED', 'IN_PROGRESS') 
-       AND r."endDate" < $1 
-       AND r."paymentStatus" = 'PAID'
-       RETURNING r.id`,
-      [now, companyId],
-    );
-
-    if (result.length > 0) {
-      console.log(
-        `Auto-updated ${result.length} company reservations to COMPLETED for company ${companyId}`,
-      );
-    }
-  } catch (err) {
-    console.error('Error updating expired company reservations:', err);
-  }
-}
+import { processCompletedReservationsForReviewEmails } from '@/lib/services/reviews/processCompletedReservationsForReviewEmails';
+import {
+  getStripeBalanceSummary,
+  listStripePaymentsForCompany,
+  summarizePayments,
+} from '@/lib/services/stripe/companyFinance';
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromToken(req);
-
-    if (!user) {
-      return NextResponse.json(
-        { ok: false, error: 'Unauthorized' },
-        { status: 401 },
-      );
-    }
+    const user = await requireAuthUserFromRequest(req);
 
     if (user.role !== 'COMPANY' && user.role !== 'ADMIN') {
       return NextResponse.json(
@@ -81,40 +21,25 @@ export async function GET(req: Request) {
       );
     }
 
-    const company = user.companyId
-      ? await CompanyRepository.findById(user.companyId)
-      : null;
-
-    if (!company && user.role === 'COMPANY') {
+    if (!user.companyId) {
       return NextResponse.json(
         { ok: false, error: 'Company not found' },
         { status: 404 },
       );
     }
 
-    // Update expired reservations before fetching stats
-    await updateExpiredReservationsForCompany(company!.id);
+    const company = await CompanyRepository.findById(user.companyId);
+    if (!company) {
+      return NextResponse.json(
+        { ok: false, error: 'Company not found' },
+        { status: 404 },
+      );
+    }
 
-    // Get all PAID reservations for company cars
-    const paidReservations = await query(
-      `SELECT r.*, c.make as "carMake", c.model as "carModel"
-       FROM "Reservation" r
-       JOIN "Car" c ON r."carId" = c.id
-       WHERE c."companyId" = $1 AND r."paymentStatus" = 'PAID'
-       ORDER BY r."createdAt" DESC`,
-      [company!.id],
-    );
+    await processCompletedReservationsForReviewEmails({
+      companyId: company.id,
+    });
 
-    // Calculate statistics from PAID reservations only
-    const totalRevenue = paidReservations.reduce(
-      (sum: number, r: any) => sum + parseFloat(r.totalPrice || 0),
-      0,
-    );
-    const platformFeePercent = company!.maintenancePercent || 0;
-    const platformFee = (totalRevenue * platformFeePercent) / 100;
-    const companyEarnings = totalRevenue - platformFee;
-
-    // Get all reservations for counts (regardless of payment status)
     const allReservations = await query(
       `SELECT r.*, c.make as "carMake", c.model as "carModel", u."name" as "userName", u."email" as "userEmail"
        FROM "Reservation" r
@@ -122,7 +47,7 @@ export async function GET(req: Request) {
        LEFT JOIN "User" u ON r."userId" = u.id
        WHERE c."companyId" = $1
        ORDER BY r."createdAt" DESC`,
-      [company!.id],
+      [company.id],
     );
 
     const totalReservations = allReservations.length;
@@ -133,11 +58,46 @@ export async function GET(req: Request) {
       (r: any) => r.status === 'COMPLETED' || r.status === 'RETURNED',
     ).length;
 
-    // Get total cars
-    const cars = await CarRepository.findByCompany(company!.id);
+    const cars = await CarRepository.findByCompany(company.id);
     const totalCars = cars.length;
 
-    // Get recent reservations (last 10, all statuses)
+    let moneySource: 'stripe' | 'database' = 'stripe';
+    let totalRevenue = 0;
+    let platformFee = 0;
+    let companyEarnings = 0;
+    let balanceAvailable = 0;
+    let balancePending = 0;
+
+    try {
+      const stripePayments = await listStripePaymentsForCompany(company);
+      const moneySummary = summarizePayments(stripePayments);
+      const balance = await getStripeBalanceSummary(company);
+
+      totalRevenue = moneySummary.totalRevenue;
+      platformFee = moneySummary.platformFee;
+      companyEarnings = moneySummary.companyEarnings;
+      balanceAvailable = balance.available;
+      balancePending = balance.pending;
+    } catch (err) {
+      console.error('Stripe dashboard fallback to database:', err);
+      moneySource = 'database';
+
+      const paidReservations = allReservations.filter(
+        (r: any) => r.paymentStatus === 'PAID',
+      );
+
+      totalRevenue = paidReservations.reduce(
+        (sum: number, r: any) => sum + parseFloat(r.totalPrice || 0),
+        0,
+      );
+
+      const feePercent = Number(company.maintenancePercent || 0);
+      platformFee = Number(((totalRevenue * feePercent) / 100).toFixed(2));
+      companyEarnings = Number((totalRevenue - platformFee).toFixed(2));
+      balanceAvailable = companyEarnings;
+      balancePending = 0;
+    }
+
     const recentReservations = allReservations.slice(0, 10).map((r: any) => ({
       id: r.id,
       carMake: r.carMake,
@@ -164,12 +124,22 @@ export async function GET(req: Request) {
         pendingReservations,
         completedReservations,
         totalCars,
-        maintenancePercent: platformFeePercent,
+        balanceAvailable,
+        balancePending,
+        moneySource,
       },
       recentReservations,
     });
   } catch (err) {
     console.error('GET /api/company/dashboard error:', err);
+
+    if (err instanceof AuthError) {
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: err.status || 401 },
+      );
+    }
+
     return NextResponse.json(
       { ok: false, error: 'Server error' },
       { status: 500 },

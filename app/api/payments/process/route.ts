@@ -44,7 +44,6 @@ export async function POST(req: NextRequest) {
           [paymentIntent.id, parseInt(reservationId)],
         );
 
-        console.log(`Reservation ${reservationId} marked as paid`);
       } catch (error) {
         console.error('Error updating reservation:', error);
       }

@@ -1,43 +1,88 @@
 import { NextResponse } from 'next/server';
-import { reservationService } from '../../../../../lib/api';
-import { sendVerificationEmail } from '../../../../../lib/mail';
+import { AuthError, requireAuthUserFromRequest } from '@/lib/auth';
+import { ReservationRepository } from '@/lib/repository/ReservationRepository';
+import { sendVerificationEmail } from '@/lib/mail';
 
-// Mock email sending for now - replace with real email service
+async function requireAdmin(req: Request) {
+  try {
+    const user = await requireAuthUserFromRequest(req);
+
+    if (user.role !== 'ADMIN') {
+      return {
+        ok: false as const,
+        resp: NextResponse.json(
+          { ok: false, error: 'Forbidden' },
+          { status: 403 },
+        ),
+      };
+    }
+
+    return { ok: true as const, user };
+  } catch (err) {
+    if (err instanceof AuthError) {
+      return {
+        ok: false as const,
+        resp: NextResponse.json(
+          { ok: false, error: err.message },
+          { status: err.status },
+        ),
+      };
+    }
+
+    return {
+      ok: false as const,
+      resp: NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      ),
+    };
+  }
+}
+
+// временно mock, докато вържеш реален mail flow
 const sendReservationEmail = async (to: string, reservationDetails: any) => {
   console.log('Sending reservation email to:', to);
   console.log('Reservation details:', reservationDetails);
-  // TODO: Implement actual email sending
   return Promise.resolve();
 };
 
 export async function POST(req: Request) {
+  const check = await requireAdmin(req);
+  if (!check.ok) return check.resp;
+
   try {
     const body = await req.json();
-    const reservation = (await reservationService.getById(
-      body.reservationId,
+
+    if (!body?.reservationId) {
+      return NextResponse.json(
+        { ok: false, error: 'reservationId_required' },
+        { status: 400 },
+      );
+    }
+
+    const reservation = (await ReservationRepository.findById(
+      Number(body.reservationId),
     )) as any;
 
     if (!reservation) {
       return NextResponse.json(
-        { error: 'Reservation not found' },
+        { ok: false, error: 'reservation_not_found' },
         { status: 404 },
       );
     }
 
     if (reservation.status === 'CANCELLED') {
       return NextResponse.json(
-        { error: 'Cannot confirm a cancelled reservation' },
+        { ok: false, error: 'cannot_confirm_cancelled_reservation' },
         { status: 400 },
       );
     }
 
-    // Update reservation status to CONFIRMED
-    const updatedReservation = await reservationService.updateStatus(
+    const updatedReservation = await ReservationRepository.updateStatus(
       reservation.id,
       'CONFIRMED',
     );
 
-    // Send confirmation email
     await sendReservationEmail(reservation.user_email, {
       ...reservation,
       carDetails: {
@@ -48,46 +93,49 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({
-      success: true,
+      ok: true,
       reservation: updatedReservation,
     });
   } catch (error) {
     console.error('POST /api/admin/reservations/confirm error:', error);
     return NextResponse.json(
-      { error: 'Failed to confirm reservation' },
+      { ok: false, error: 'failed_to_confirm_reservation' },
       { status: 500 },
     );
   }
 }
 
 export async function GET(req: Request) {
+  const check = await requireAdmin(req);
+  if (!check.ok) return check.resp;
+
   try {
     const url = new URL(req.url);
     const reservationId = url.searchParams.get('reservationId');
 
     if (!reservationId) {
       return NextResponse.json(
-        { error: 'Reservation ID is required' },
+        { ok: false, error: 'reservation_id_required' },
         { status: 400 },
       );
     }
 
-    const reservation = (await reservationService.getById(
+    const reservation = (await ReservationRepository.findById(
       Number(reservationId),
     )) as any;
 
     if (!reservation) {
       return NextResponse.json(
-        { error: 'Reservation not found' },
+        { ok: false, error: 'reservation_not_found' },
         { status: 404 },
       );
     }
 
-    return NextResponse.json({ reservation }, { status: 200 });
+    return NextResponse.json({ ok: true, reservation });
   } catch (error) {
-    console.error('GET /api/admin/reservations error:', error);
+    console.error('GET /api/admin/reservations/confirm error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch reservations' },
+      { ok: false, error: 'failed_to_fetch_reservation' },
       { status: 500 },
     );
   }

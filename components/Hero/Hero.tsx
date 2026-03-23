@@ -2,6 +2,10 @@
 
 import React from 'react';
 
+type Props = {
+  isLoggedIn: boolean;
+};
+
 export default function Hero({
   query,
   setQuery,

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { EmptyStar, FullStar } from '@/components/icons';
 
 interface Review {
@@ -18,6 +18,7 @@ interface ReviewsListProps {
   reviews: Review[];
   loading: boolean;
   canAddReview?: boolean;
+  initialOpen?: boolean;
   onSubmitReview?: (rating: number, comment: string) => Promise<void>;
 }
 
@@ -25,13 +26,20 @@ export default function ReviewsList({
   reviews,
   loading,
   canAddReview = false,
+  initialOpen = false,
   onSubmitReview,
 }: ReviewsListProps) {
-  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(initialOpen);
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (initialOpen && canAddReview) {
+      setShowReviewForm(true);
+    }
+  }, [initialOpen, canAddReview]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,11 +123,6 @@ export default function ReviewsList({
                   );
                 })}
               </div>
-              {rating > 0 && (
-                <p className="text-sm text-gray-600 mt-1">
-                  You selected {rating} star{rating !== 1 ? 's' : ''}
-                </p>
-              )}
             </div>
 
             <div className="mb-4">
@@ -188,7 +191,7 @@ export default function ReviewsList({
                       <div className="text-sm text-gray-500">
                         {review.createdAt
                           ? new Date(review.createdAt).toLocaleDateString(
-                              'en-US',
+                              'bg-BG',
                               {
                                 year: 'numeric',
                                 month: 'long',

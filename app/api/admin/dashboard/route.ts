@@ -6,7 +6,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export async function GET(request: NextRequest) {
   try {
-    // Проверка на автентикация
     const token = request.cookies.get('token')?.value;
 
     if (!token) {
@@ -23,7 +22,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Невалиден токен' }, { status: 401 });
     }
 
-    // Проверка дали е админ
     const userResult = await query(`SELECT role FROM "User" WHERE id = $1`, [
       decoded.userId,
     ]);
@@ -44,12 +42,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Вземаме всички компании
     const companies = await query(
       `SELECT id, name FROM "Company" ORDER BY name`,
     );
 
-    // Вземаме всички резервации с правилните статуси
     const reservations = await query(`
       SELECT 
         r.id,
@@ -65,20 +61,16 @@ export async function GET(request: NextRequest) {
       ORDER BY r."createdAt" DESC
     `);
 
-    // Инициализация на статистики
     let totalRevenue = 0;
     let platformRevenue = 0;
     let monthlyRevenue = 0;
     let monthlyPlatformRevenue = 0;
 
-    // Текущ месец
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Статистики по компании
     const companiesStatsMap = new Map();
 
-    // Инициализираме статистики за всяка компания
     companies.forEach((company: any) => {
       companiesStatsMap.set(company.id, {
         id: company.id,
@@ -91,10 +83,10 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Обработваме всяка резервация
     reservations.forEach((reservation: any) => {
       const totalPrice = parseFloat(reservation.total_price) || 0;
-      const platformFee = totalPrice * 0.1; // 10% за платформата
+      const feePercent = Number(reservation.platform_fee_percent ?? 0);
+      const platformFee = totalPrice * (feePercent / 100);
       const companyRevenue = totalPrice - platformFee;
 
       // Общи статистики
@@ -138,7 +130,6 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => parseFloat(b.revenue) - parseFloat(a.revenue));
 
-    // Подготвяме финалния отговор
     const stats = {
       totalCompanies: companies.length,
       totalReservations: reservations.length,

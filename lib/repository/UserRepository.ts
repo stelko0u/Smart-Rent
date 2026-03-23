@@ -47,7 +47,10 @@ export class UserRepository {
   }
 
   static async delete(id: number): Promise<boolean> {
-    const result = await query('DELETE FROM "User" WHERE id = $1', [id]);
+    const result = await query(
+      'DELETE FROM "User" WHERE id = $1 RETURNING id',
+      [id],
+    );
     return result.length > 0;
   }
 

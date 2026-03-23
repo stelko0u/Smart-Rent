@@ -67,6 +67,118 @@ export class PaymentsRepository {
     );
   }
 
+  static async getMonthlyPlatformFeeSummary(
+    companyId: number,
+    periodStart: Date,
+    periodEndExclusive: Date,
+  ): Promise<{
+    paymentsCount: number;
+    grossAmount: number;
+    platformFee: number;
+    netAmount: number;
+  }> {
+    const result = await queryOne<{
+      paymentsCount: string;
+      grossAmount: string;
+      platformFee: string;
+      netAmount: string;
+    }>(
+      `
+      SELECT
+        COUNT(*)::text as "paymentsCount",
+        COALESCE(SUM("totalPrice"), 0)::text as "grossAmount",
+        COALESCE(SUM("platformFee"), 0)::text as "platformFee",
+        COALESCE(SUM("companyEarnings"), 0)::text as "netAmount"
+      FROM "Payments"
+      WHERE "companyId" = $1
+        AND "paymentStatus" = 'PAID'
+        AND COALESCE("paidAt", "createdAt") >= $2
+        AND COALESCE("paidAt", "createdAt") < $3
+      `,
+      [companyId, periodStart, periodEndExclusive],
+    );
+
+    return {
+      paymentsCount: Number(result?.paymentsCount ?? 0),
+      grossAmount: Number(result?.grossAmount ?? 0),
+      platformFee: Number(result?.platformFee ?? 0),
+      netAmount: Number(result?.netAmount ?? 0),
+    };
+  }
+
+  static async getPaidPaymentsForPeriod(
+    companyId: number,
+    periodStart: Date,
+    periodEndExclusive: Date,
+  ): Promise<any[]> {
+    return query(
+      `
+    SELECT
+      p.*,
+      r."startDate",
+      r."endDate",
+      c.make,
+      c.model,
+      c.year,
+      u.name as "userName",
+      u.email as "userEmail"
+    FROM "Payments" p
+    LEFT JOIN "Reservation" r ON p."reservationId" = r.id
+    LEFT JOIN "Car" c ON r."carId" = c.id
+    LEFT JOIN "User" u ON r."userId" = u.id
+    WHERE p."companyId" = $1
+      AND p."paymentStatus" = 'PAID'
+      AND COALESCE(p."paidAt", p."createdAt") >= $2
+      AND COALESCE(p."paidAt", p."createdAt") < $3
+    ORDER BY COALESCE(p."paidAt", p."createdAt") ASC
+    `,
+      [companyId, periodStart, periodEndExclusive],
+    );
+  }
+
+  static async getMonthlySalesSummaryByMonthKey(
+    companyId: number,
+    invoiceMonth: string,
+  ): Promise<{
+    grossAmount: number;
+    platformFee: number;
+    netAmount: number;
+    paymentsCount: number;
+  }> {
+    const [year, month] = invoiceMonth.split('-').map(Number);
+
+    const periodStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+    const periodEndExclusive = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+
+    const result = await queryOne<{
+      grossAmount: string;
+      platformFee: string;
+      netAmount: string;
+      paymentsCount: string;
+    }>(
+      `
+      SELECT
+        COALESCE(SUM("totalPrice"), 0)::text as "grossAmount",
+        COALESCE(SUM("platformFee"), 0)::text as "platformFee",
+        COALESCE(SUM("companyEarnings"), 0)::text as "netAmount",
+        COUNT(*)::text as "paymentsCount"
+      FROM "Payments"
+      WHERE "companyId" = $1
+        AND "paymentStatus" = 'PAID'
+        AND COALESCE("paidAt", "createdAt") >= $2
+        AND COALESCE("paidAt", "createdAt") < $3
+    `,
+      [companyId, periodStart, periodEndExclusive],
+    );
+
+    return {
+      grossAmount: Number(result?.grossAmount ?? 0),
+      platformFee: Number(result?.platformFee ?? 0),
+      netAmount: Number(result?.netAmount ?? 0),
+      paymentsCount: Number(result?.paymentsCount ?? 0),
+    };
+  }
+
   static async findByStripePaymentIntent(
     paymentIntentId: string,
   ): Promise<Payments | null> {

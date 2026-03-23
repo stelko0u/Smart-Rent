@@ -1,32 +1,20 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+
 import Successfully from '../../../components/icons/Successfully';
 
 function ReservationSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const reservationId = searchParams.get('id');
-  const confirmed = searchParams.get('confirmed');
-  const [countdown, setCountdown] = useState(5);
+  const step = searchParams.get('step');
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          router.push('/profile');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [router]);
-
-  const isConfirmed = confirmed === 'true';
+  const isConfirmed = step === 'confirmed';
+  const isCheckEmail = step === 'check-email';
+  const isCreated = step === 'created';
 
   return (
     <div className="min-h-screen bg-linear-to-br from-green-50 to-blue-50 flex items-center justify-center px-4">
@@ -36,25 +24,43 @@ function ReservationSuccessContent() {
         </div>
 
         <h1 className="text-3xl font-bold text-gray-900 mb-3">
-          {isConfirmed ? 'Reservation Confirmed!' : 'Payment Successful!'}
+          {isConfirmed
+            ? 'Reservation Confirmed!'
+            : isCheckEmail
+              ? 'Reservation Created!'
+              : 'Reservation Sent!'}
         </h1>
-        {isConfirmed ? (
+
+        {isCheckEmail && (
           <div className="mb-6">
             <p className="text-gray-700 text-lg mb-2">
-              Your reservation has been successfully confirmed!
+              Your reservation was created successfully.
+            </p>
+            <p className="text-gray-600 text-sm">
+              We sent you an email with a link. Open it to continue to the
+              payment page.
+            </p>
+          </div>
+        )}
+
+        {isCreated && (
+          <div className="mb-6">
+            <p className="text-gray-700 text-lg mb-2">
+              Your reservation request was created successfully.
             </p>
             <p className="text-gray-600 text-sm">
               You can now view your reservation details in your profile.
             </p>
           </div>
-        ) : (
+        )}
+
+        {isConfirmed && (
           <div className="mb-6">
             <p className="text-gray-700 text-lg mb-2">
-              Your payment has been processed successfully!
+              Your reservation has been successfully confirmed and completed.
             </p>
             <p className="text-gray-600 text-sm">
-              Please check your email and confirm your reservation to complete
-              the process.
+              You can now view your reservation details in your profile.
             </p>
           </div>
         )}
@@ -68,7 +74,7 @@ function ReservationSuccessContent() {
           </div>
         )}
 
-        {!isConfirmed && (
+        {isCheckEmail && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 text-left">
             <div className="flex">
               <div className="shrink-0">
@@ -84,39 +90,25 @@ function ReservationSuccessContent() {
                   />
                 </svg>
               </div>
+
               <div className="ml-3">
                 <p className="text-sm text-yellow-700">
-                  <strong>Important:</strong> Check your email and click the
-                  confirmation link to activate your reservation.
+                  <strong>Important:</strong> Check your email and use the link
+                  inside to continue to payment.
                 </p>
               </div>
             </div>
           </div>
         )}
 
-        <div className="mb-6">
-          <p className="text-sm text-gray-500">
-            Redirecting to your profile in{' '}
-            <span className="font-bold text-indigo-600 text-lg">
-              {countdown}
-            </span>{' '}
-            seconds...
-          </p>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-2 overflow-hidden">
-            <div
-              className="bg-indigo-600 h-2 rounded-full transition-all duration-1000 ease-linear"
-              style={{ width: `${((5 - countdown) / 5) * 100}%` }}
-            ></div>
-          </div>
-        </div>
-
         <div className="space-y-3">
           <button
             onClick={() => router.push('/profile')}
             className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition shadow-md hover:shadow-lg cursor-pointer"
           >
-            Go to Profile Now
+            Go to Profile
           </button>
+
           <button
             onClick={() => router.push('/')}
             className="w-full px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition cursor-pointer"

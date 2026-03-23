@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 
-import { query } from '../../../lib/db';
-import { UserRepository } from '@/lib/repository/UserRepository';
 import { CarRepository } from '@/lib/repository/CarRepository';
 import { ReservationRepository } from '@/lib/repository/ReservationRepository';
+import { UserRepository } from '@/lib/repository/UserRepository';
+import { sendReservationPaymentEmail } from '@/lib/services/mail/sendReservationPaymentEmail';
+import { processCompletedReservationsForReviewEmails } from '@/lib/services/reviews/processCompletedReservationsForReviewEmails';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
@@ -12,55 +13,30 @@ const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
 function getTokenFromRequest(req: Request) {
   const auth = req.headers.get('authorization');
   if (auth?.startsWith('Bearer ')) return auth.substring(7).trim();
+
   const cookieHeader = req.headers.get('cookie') || '';
   const match = cookieHeader.match(
     new RegExp(`(^|;\\s*)${COOKIE_NAME}=([^;]+)`),
   );
+
   return match ? decodeURIComponent(match[2]) : null;
 }
 
 async function getUserFromToken(req: Request) {
   if (!JWT_SECRET) return null;
+
   const token = getTokenFromRequest(req);
   if (!token) return null;
 
   try {
     const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
     const userId = Number(payload.userId ?? payload.sub);
-    if (!userId || isNaN(userId)) return null;
 
-    const user = await UserRepository.findById(userId);
-    return user;
-  } catch (err) {
+    if (!userId || Number.isNaN(userId)) return null;
+
+    return UserRepository.findById(userId);
+  } catch {
     return null;
-  }
-}
-
-async function updateExpiredReservations(userId?: number) {
-  const now = new Date();
-
-  try {
-    const whereClause = userId
-      ? `WHERE "userId" = $2 AND status IN ('CONFIRMED', 'IN_PROGRESS') AND "endDate" < $1 AND "paymentStatus" = 'PAID'`
-      : `WHERE status IN ('CONFIRMED', 'IN_PROGRESS') AND "endDate" < $1 AND "paymentStatus" = 'PAID'`;
-
-    const params = userId ? [now, userId] : [now];
-
-    const result = await query(
-      `UPDATE "Reservation" 
-       SET status = 'COMPLETED', "updatedAt" = NOW()
-       ${whereClause}
-       RETURNING id`,
-      params,
-    );
-
-    if (result.length > 0) {
-      console.log(
-        `Auto-updated ${result.length} reservations to COMPLETED for user ${userId || 'all'}`,
-      );
-    }
-  } catch (err) {
-    console.error('Error updating expired reservations:', err);
   }
 }
 
@@ -84,8 +60,17 @@ export async function POST(req: Request) {
       lastName,
       email,
       phone,
-      licenseNumber,
-    } = body;
+      paymentMethod,
+    } = body as {
+      carId: number;
+      startDate: string;
+      endDate: string;
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phone?: string;
+      paymentMethod?: 'CARD' | 'ON_SPOT';
+    };
 
     if (!carId || !startDate || !endDate) {
       return NextResponse.json(
@@ -93,6 +78,9 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+
+    const normalizedPaymentMethod =
+      paymentMethod === 'ON_SPOT' ? 'ON_SPOT' : 'CARD';
 
     const car = await CarRepository.findById(Number(carId));
 
@@ -116,21 +104,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const diffTime = end.getTime() - start.getTime();
-    const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
-    const totalPrice = days * car.pricePerDay;
+    const conflictingReservations = await ReservationRepository.findConflicting(
+      Number(carId),
+      start,
+      end,
+    );
 
-    console.log('Reservation Calculation:', {
-      carId,
-      carMake: car.make,
-      carModel: car.model,
-      pricePerDay: car.pricePerDay,
-      startDate: start.toISOString(),
-      endDate: end.toISOString(),
-      days,
-      totalPrice,
-      calculation: `${days} days × $${car.pricePerDay} = $${totalPrice}`,
-    });
+    if (conflictingReservations.length > 0) {
+      return NextResponse.json(
+        { ok: false, error: 'Selected dates are no longer available' },
+        { status: 409 },
+      );
+    }
+
+    const diffTime = end.getTime() - start.getTime();
+    const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    const totalPrice = days * car.pricePerDay;
 
     const reservation = await ReservationRepository.create({
       userId: user.id,
@@ -144,13 +133,40 @@ export async function POST(req: Request) {
       phone: phone || '',
       status: 'PENDING',
       paymentStatus: 'PENDING',
+      paymentMethod: normalizedPaymentMethod,
     });
 
-    console.log('Reservation Created:', {
-      id: reservation.id,
-      totalPrice: reservation.totalPrice,
-      days,
-    });
+    let emailSent = false;
+
+    if (normalizedPaymentMethod === 'CARD') {
+      try {
+        await sendReservationPaymentEmail(
+          {
+            id: reservation.id,
+            firstName: reservation.firstName,
+            lastName: reservation.lastName,
+            email: reservation.email,
+            startDate: reservation.startDate,
+            endDate: reservation.endDate,
+            totalPrice: reservation.totalPrice,
+            paymentMethod: reservation.paymentMethod,
+          },
+          {
+            make: car.make,
+            model: car.model,
+            year: car.year,
+            pricePerDay: car.pricePerDay,
+          },
+        );
+
+        emailSent = true;
+      } catch (mailError) {
+        console.error(
+          `Failed to send reservation payment email for reservation #${reservation.id}:`,
+          mailError,
+        );
+      }
+    }
 
     return NextResponse.json({
       ok: true,
@@ -163,9 +179,20 @@ export async function POST(req: Request) {
         },
         days,
       },
+      flow: {
+        paymentMethod: normalizedPaymentMethod,
+        emailSent,
+        nextStep:
+          normalizedPaymentMethod === 'CARD'
+            ? emailSent
+              ? 'CHECK_EMAIL'
+              : 'PAYMENT_PAGE'
+            : 'RESERVATION_CREATED',
+      },
     });
   } catch (err) {
     console.error('POST /api/reservations error:', err);
+
     return NextResponse.json(
       {
         ok: false,
@@ -188,8 +215,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // Update expired reservations before fetching
-    await updateExpiredReservations(user.id);
+    await processCompletedReservationsForReviewEmails({ userId: user.id });
 
     const reservations = await ReservationRepository.findByUser(user.id);
 
@@ -199,6 +225,7 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     console.error('GET /api/reservations error:', err);
+
     return NextResponse.json(
       { ok: false, error: 'Failed to fetch reservations' },
       { status: 500 },

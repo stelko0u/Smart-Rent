@@ -1,50 +1,15 @@
 import { NextResponse } from 'next/server';
-import jwt, { JwtPayload } from 'jsonwebtoken';
+import { AuthError, requireAuthUserFromRequest } from '@/lib/auth';
 import { CompanyRepository } from '@/lib/repository/CompanyRepository';
 import { PaymentsRepository } from '@/lib/repository/PaymentsRepository';
-import { UserRepository } from '@/lib/repository/UserRepository';
-
-const JWT_SECRET = process.env.JWT_SECRET;
-const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
-
-function getTokenFromRequest(req: Request) {
-  const auth = req.headers.get('authorization');
-  if (auth?.startsWith('Bearer ')) return auth.substring(7).trim();
-  const cookieHeader = req.headers.get('cookie') || '';
-  const match = cookieHeader.match(
-    new RegExp(`(^|;\\s*)${COOKIE_NAME}=([^;]+)`),
-  );
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
-async function getUserFromToken(req: Request) {
-  if (!JWT_SECRET) return null;
-  const token = getTokenFromRequest(req);
-  if (!token) return null;
-
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    const userId = Number(payload.userId ?? payload.sub);
-    if (!userId || isNaN(userId)) return null;
-
-    const user = await UserRepository.findById(userId);
-    return user;
-  } catch (err) {
-    console.error('getUserFromToken error:', err);
-    return null;
-  }
-}
+import {
+  listStripePaymentsForCompany,
+  summarizePayments,
+} from '@/lib/services/stripe/companyFinance';
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromToken(req);
-
-    if (!user) {
-      return NextResponse.json(
-        { ok: false, error: 'Unauthorized' },
-        { status: 401 },
-      );
-    }
+    const user = await requireAuthUserFromRequest(req);
 
     if (user.role !== 'COMPANY' && user.role !== 'ADMIN') {
       return NextResponse.json(
@@ -53,10 +18,14 @@ export async function GET(req: Request) {
       );
     }
 
-    const company = user.companyId
-      ? await CompanyRepository.findById(user.companyId)
-      : null;
+    if (!user.companyId) {
+      return NextResponse.json(
+        { ok: false, error: 'Company not found' },
+        { status: 404 },
+      );
+    }
 
+    const company = await CompanyRepository.findById(user.companyId);
     if (!company) {
       return NextResponse.json(
         { ok: false, error: 'Company not found' },
@@ -64,15 +33,68 @@ export async function GET(req: Request) {
       );
     }
 
-    const payments = await PaymentsRepository.findByCompany(company.id);
-    const totalEarnings = await PaymentsRepository.getTotalEarnings(company.id);
+    try {
+      const payments = await listStripePaymentsForCompany(company);
+      const totals = summarizePayments(payments);
 
-    return NextResponse.json({
-      ok: true,
-      payments,
-      totalEarnings,
-    });
+      return NextResponse.json({
+        ok: true,
+        source: 'stripe',
+        payments,
+        totalRevenue: totals.totalRevenue,
+        totalPlatformFee: totals.platformFee,
+        totalEarnings: totals.companyEarnings,
+      });
+    } catch (stripeErr) {
+      console.error('Stripe payments fallback to database:', stripeErr);
+
+      const payments = await PaymentsRepository.findByCompany(company.id);
+      const totalEarnings = await PaymentsRepository.getTotalEarnings(
+        company.id,
+      );
+
+      const totalRevenue = Number(
+        payments
+          .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
+          .toFixed(2),
+      );
+
+      const totalPlatformFee = Number(
+        payments
+          .reduce(
+            (sum: number, item: any) => sum + Number(item.platformFee || 0),
+            0,
+          )
+          .toFixed(2),
+      );
+
+      return NextResponse.json({
+        ok: true,
+        source: 'database',
+        payments: payments.map((item: any) => ({
+          ...item,
+          source: 'database',
+          customerName: item.userName || '',
+          customerEmail: item.userEmail || '',
+          carLabel: [item.make, item.model, item.year]
+            .filter(Boolean)
+            .join(' '),
+          paymentIntentId: item.stripePaymentIntentId || '',
+          chargeId: item.stripeChargeId || '',
+        })),
+        totalRevenue,
+        totalPlatformFee,
+        totalEarnings,
+      });
+    }
   } catch (err) {
+    if (err instanceof AuthError) {
+      return NextResponse.json(
+        { ok: false, error: err.message },
+        { status: err.status },
+      );
+    }
+
     console.error('GET /api/company/payments error:', err);
     return NextResponse.json(
       {

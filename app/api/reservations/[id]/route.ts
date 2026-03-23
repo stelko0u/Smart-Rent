@@ -13,7 +13,6 @@ export async function GET(
     console.log('🔍 Looking for reservation:', id, 'for user:', user?.id);
 
     if (!user) {
-      console.log('❌ No user authenticated');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -73,8 +72,9 @@ export async function GET(
     // Calculate days (+1 to include both start and end date)
     const start = new Date(reservation.startDate);
     const end = new Date(reservation.endDate);
-    const days =
-      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const days = Math.ceil(
+      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
+    );
 
     // Calculate total
     const pricePerDay = parseFloat(reservation.pricePerDay);

@@ -1,5 +1,5 @@
+import { CarRepository } from '@/lib/repository/CarRepository';
 import { NextResponse } from 'next/server';
-import { carService } from '../../../lib/api';
 
 export async function GET(req: Request) {
   try {
@@ -9,15 +9,15 @@ export async function GET(req: Request) {
 
     if (id) {
       // Get single car by ID
-      const car = await carService.getById(Number(id));
+      const car = await CarRepository.findById(Number(id));
       return NextResponse.json({ cars: car ? [car] : [] }, { status: 200 });
     } else if (companyId) {
       // Get cars by company
-      const cars = await carService.getByCompany(Number(companyId));
+      const cars = await CarRepository.findByCompany(Number(companyId));
       return NextResponse.json({ cars }, { status: 200 });
     } else {
       // Get all cars with search
-      const cars = await carService.search({});
+      const cars = await CarRepository.getAll();
       return NextResponse.json({ cars }, { status: 200 });
     }
   } catch (error) {
@@ -28,5 +28,3 @@ export async function GET(req: Request) {
     );
   }
 }
-
-const a = 1;

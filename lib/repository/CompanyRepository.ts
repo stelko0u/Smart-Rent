@@ -68,6 +68,8 @@ export class CompanyRepository {
     );
   }
 
+
+  
   static async deleteByOwnerId(ownerId: number): Promise<boolean> {
     const result = await query('DELETE FROM "Company" WHERE "ownerId" = $1', [
       ownerId,

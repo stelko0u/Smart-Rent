@@ -33,6 +33,7 @@ export interface Company {
   updatedAt?: Date;
   office: Office;
   stripeAccountId: string;
+  stripeBillingCustomerId?: string | null;
 }
 
 export interface Car {
@@ -90,6 +91,7 @@ export interface Reservation {
   paymentIntentId?: string;
   paymentMethod?: 'CARD' | 'ON_SPOT';
   paymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+  reviewRequestSentAt?: Date | null;
 }
 
 export interface Payments {

@@ -1,112 +1,54 @@
-import { fetchMe } from '@/lib/api';
+import { NextResponse } from 'next/server';
+import { CompanyRepository } from '@/lib/repository/CompanyRepository';
 import { OfficeRepository } from '@/lib/repository/OfficeRepository';
-import { NextRequest, NextResponse } from 'next/server';
+import { requireCompanyApiUser, authErrorResponse } from '@/lib/api';
 
-
-
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   try {
-    const meRes = await fetchMe(req);
-    if (!meRes.ok) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const user = await requireCompanyApiUser(req);
 
-    const me = await meRes.json();
-    const companyId = me?.company?.id ?? me?.user?.companyId ?? null;
-
+    const companyId = user.companyId ?? null;
     if (!companyId) {
       return NextResponse.json(
-        { error: 'Missing company ID' },
-        { status: 400 },
+        { ok: false, error: 'company_not_found' },
+        { status: 404 },
       );
     }
 
-    const offices = await OfficeRepository.findManyByCompanyId(companyId);
+    const company = await CompanyRepository.findById(Number(companyId));
+    if (!company) {
+      return NextResponse.json(
+        { ok: false, error: 'company_not_found' },
+        { status: 404 },
+      );
+    }
 
-    return NextResponse.json({ offices }, { status: 200 });
-  } catch (err) {
+    const offices = await OfficeRepository.findByCompany(Number(companyId));
+
+    return NextResponse.json({
+      ok: true,
+      offices,
+    });
+  } catch (err: any) {
+    if (err?.message === 'company_activation_required' || err?.status === 403) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: err?.message || 'Forbidden',
+          access: err?.details ?? null,
+        },
+        { status: err?.status || 403 },
+      );
+    }
+
+    const authResponse = authErrorResponse(err);
+    if (authResponse.status !== 401) {
+      return authResponse;
+    }
+
     console.error('company/offices GET error:', err);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
-  }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const { name, address, latitude, longitude, companyId } = await req.json();
-
-    if (!companyId) {
-      return NextResponse.json(
-        { error: 'Missing required field: companyId' },
-        { status: 400 },
-      );
-    }
-
-    const office = await OfficeRepository.create({
-      name,
-      address,
-      latitude,
-      longitude,
-      companyId: Number(companyId),
-    });
-
-    return NextResponse.json(office, { status: 201 });
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to create office' },
-      { status: 500 },
-    );
-  }
-}
-
-export async function DELETE(req: NextRequest) {
-  try {
-    const { id } = await req.json();
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Missing required field: id' },
-        { status: 400 },
-      );
-    }
-
-    await OfficeRepository.delete(Number(id));
-
-    return NextResponse.json(
-      { message: 'Office deleted successfully' },
-      { status: 200 },
-    );
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to delete office' },
-      { status: 500 },
-    );
-  }
-}
-
-export async function PATCH(req: NextRequest) {
-  try {
-    const { id, ...data } = await req.json();
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Missing required field: id' },
-        { status: 400 },
-      );
-    }
-
-    const updatedOffice = await OfficeRepository.update(Number(id), data);
-
-    if (!updatedOffice) {
-      return NextResponse.json({ error: 'Office not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(updatedOffice, { status: 200 });
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to update office' },
+      { ok: false, error: 'Internal server error' },
       { status: 500 },
     );
   }
