@@ -3,6 +3,8 @@
 import React from 'react';
 import NavItem from './NavItem';
 import SignOutButton from '../auth/SignOutButton';
+import LanguageSwitcher from '@/components/ui/LanguageSwitcher';
+import { useTranslation } from '@/providers/LanguageProvider';
 import {
   Car,
   CarKey,
@@ -27,6 +29,8 @@ export default function Sidebar({
   isLoggedIn: boolean;
   role?: 'user' | 'company' | 'admin' | null;
 }) {
+  const { t } = useTranslation();
+
   const navItems: {
     label: string;
     key: string;
@@ -37,25 +41,25 @@ export default function Sidebar({
   if (role === 'user') {
     navItems.push(
       {
-        label: 'Home',
+        label: t('nav.home'),
         key: 'home',
         href: '/',
         icon: <House className="w-6 h-6" />,
       },
       {
-        label: 'Browse Cars',
+        label: t('nav.browseCars'),
         key: 'browse',
         href: '/',
         icon: <MagnifyingGlassPlus className="w-6 h-6" />,
       },
       {
-        label: 'My Rentals',
+        label: t('nav.myRentals'),
         key: 'rentals',
-        href: 'profile?tab=rentals',
+        href: '/profile?tab=rentals',
         icon: <CarKey className="w-6 h-6" />,
       },
       {
-        label: 'Profile',
+        label: t('nav.profile'),
         key: 'profile',
         href: '/profile',
         icon: <User className="w-6 h-6" />,
@@ -64,25 +68,25 @@ export default function Sidebar({
   } else if (role === 'company') {
     navItems.push(
       {
-        label: 'Dashboard',
+        label: t('nav.dashboard'),
         key: 'dashboard',
         href: '/company?tab=dashboard',
         icon: <ChartLine className="w-6 h-6" />,
       },
       {
-        label: 'Add Car',
+        label: t('nav.addCar'),
         key: 'add-car',
         href: '/company?tab=add-car',
         icon: <Car className="w-6 h-6" />,
       },
       {
-        label: 'Manage Cars',
+        label: t('nav.manageCars'),
         key: 'manage-cars',
         href: '/company?tab=manage-cars',
         icon: <Cars className="w-6 h-6" />,
       },
       {
-        label: 'Profile',
+        label: t('nav.profile'),
         key: 'profile',
         href: '/profile',
         icon: <User className="w-6 h-6" />,
@@ -91,19 +95,19 @@ export default function Sidebar({
   } else if (role === 'admin') {
     navItems.push(
       {
-        label: 'Admin Panel',
+        label: t('nav.adminPanel'),
         key: 'admin-panel',
         href: '/admin',
         icon: <ScrewdriverWrench className="w-6 h-6" />,
       },
       {
-        label: 'Manage Users',
+        label: t('nav.manageUsers'),
         key: 'manage-users',
         href: '/admin?tab=users',
         icon: <UsersGear className="w-6 h-6" />,
       },
       {
-        label: 'Reports',
+        label: t('nav.reports'),
         key: 'reports',
         href: '/admin/reports',
         icon: <TriangleExclamation className="w-6 h-6" />,
@@ -111,7 +115,7 @@ export default function Sidebar({
     );
   } else {
     navItems.push({
-      label: 'Home',
+      label: t('nav.home'),
       key: 'home',
       href: '/',
       icon: <House className="w-6 h-6" />,
@@ -119,17 +123,21 @@ export default function Sidebar({
   }
 
   return (
-    <aside className="w-64 hidden md:flex flex-col bg-white border-r border-gray-200 min-h-screen p-6">
+    <aside className="hidden min-h-screen w-64 flex-col border-r border-gray-200 bg-white p-6 md:flex">
       <div className="flex items-center gap-3">
         <img
           src="/logo.png"
-          alt="Smart Rent Logo"
+          alt={`${t('common.appName')} Logo`}
           className="h-24 w-24 object-contain"
         />
         <div>
-          <h3 className="text-lg font-semibold">Smart Rent</h3>
-          <h4 className="text-sm text-gray-500">Drive Safe</h4>
+          <h3 className="text-lg font-semibold">{t('common.appName')}</h3>
+          <h4 className="text-sm text-gray-500">{t('common.driveSafe')}</h4>
         </div>
+      </div>
+
+      <div className="mt-4">
+        <LanguageSwitcher />
       </div>
 
       <nav className="flex-1">
@@ -154,18 +162,18 @@ export default function Sidebar({
         {isLoggedIn ? (
           <SignOutButton />
         ) : (
-          <div className="flex gap-2 flex-col">
+          <div className="flex flex-col gap-2">
             <a
               href="/signin"
-              className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold text-center cursor-pointer hover:scale-102 transition-all"
+              className="cursor-pointer rounded-lg bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white transition-all hover:scale-102"
             >
-              Sign In
+              {t('common.signIn')}
             </a>
             <a
               href="/signup"
-              className="px-3 py-2 border border-indigo-600 text-indigo-600 rounded-lg text-sm font-semibold text-center cursor-pointer hover:scale-102 transition-all"
+              className="cursor-pointer rounded-lg border border-indigo-600 px-3 py-2 text-center text-sm font-semibold text-indigo-600 transition-all hover:scale-102"
             >
-              Sign Up
+              {t('common.signUp')}
             </a>
           </div>
         )}

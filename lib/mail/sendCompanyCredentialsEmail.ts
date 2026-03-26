@@ -20,10 +20,7 @@ export async function sendCompanyCredentialsEmail(
   input: SendCompanyCredentialsEmailInput,
 ) {
   const from =
-    process.env.EMAIL_FROM ??
-    process.env.SMTP_FROM ??
-    process.env.SMTP_USER ??
-    process.env.ABV_USER;
+    process.env.EMAIL_FROM ?? process.env.SMTP_FROM ?? process.env.SMTP_USER;
 
   if (!from) {
     throw new Error('smtp_from_not_configured');
@@ -42,9 +39,9 @@ export async function sendCompanyCredentialsEmail(
   const safeTemporaryPassword = escapeHtml(input.temporaryPassword);
 
   await transporter.sendMail({
-    from: `AutoRent <${from}>`,
+    from: `SmartRent <${from}>`,
     to,
-    subject: 'AutoRent: Временна парола за достъп',
+    subject: 'SmartRent: Временна парола за достъп',
     text: [
       'Здравейте,',
       '',
@@ -55,7 +52,7 @@ export async function sendCompanyCredentialsEmail(
       'При първо влизане смяната на паролата е задължителна.',
       '',
       'Поздрави,',
-      'AutoRent',
+      'SmartRent',
     ].join('\n'),
     html: `
       <p>Здравейте,</p>
@@ -63,7 +60,7 @@ export async function sendCompanyCredentialsEmail(
       <p><strong>Имейл за вход:</strong> ${safeLoginEmail}</p>
       <p><strong>Временна парола:</strong> ${safeTemporaryPassword}</p>
       <p>При първо влизане смяната на паролата е <strong>задължителна</strong>.</p>
-      <p>Поздрави,<br/>AutoRent</p>
+      <p>Поздрави,<br/>SmartRent</p>
     `,
   });
 

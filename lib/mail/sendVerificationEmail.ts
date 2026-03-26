@@ -37,7 +37,7 @@ export async function sendVerificationEmail(
     text: `Потвърди своя имейл адрес: ${verifyUrl}`,
     html: getConfirmEmailTemplate({
       verifyUrl,
-      appName: 'AutoRent',
+      appName: 'SmartRent',
       userName,
     }),
   });

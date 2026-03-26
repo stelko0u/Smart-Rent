@@ -15,7 +15,7 @@ type ConfirmEmailTemplateInput = {
 
 export function getConfirmEmailTemplate({
   verifyUrl,
-  appName = 'AutoRent',
+  appName = 'SmartRent',
   userName,
 }: ConfirmEmailTemplateInput) {
   const safeVerifyUrl = escapeHtml(verifyUrl);

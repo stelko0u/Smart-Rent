@@ -18,14 +18,6 @@ const PUBLIC_PATHS = [
   '/review',
 ];
 
-const PUBLIC_PATH_PREFIXES = [
-  '/_next',
-  '/favicon',
-  '/images',
-  '/uploads',
-  '/car', // важно: за /car/[id]
-];
-
 const PUBLIC_API_PREFIXES = [
   '/api/auth',
   '/api/cars',
@@ -33,7 +25,6 @@ const PUBLIC_API_PREFIXES = [
   '/api/reviews',
   '/api/cron/process-review-emails',
   '/api/dev/test-review-email',
-  '/api/reviews',
   '/api/review-link',
   '/api/cron/review-reminders',
 ];
@@ -51,14 +42,10 @@ function isPublicPath(pathname: string) {
 
 async function readSession(req: NextRequest): Promise<SessionPayload | null> {
   const token = req.cookies.get('token')?.value;
-  if (!token) {
-    return null;
-  }
+  if (!token) return null;
 
   const secretValue = process.env.JWT_SECRET;
-  if (!secretValue) {
-    return null;
-  }
+  if (!secretValue) return null;
 
   try {
     const secret = new TextEncoder().encode(secretValue);
@@ -70,30 +57,38 @@ async function readSession(req: NextRequest): Promise<SessionPayload | null> {
   }
 }
 
+function withLocaleCookie(req: NextRequest, res: NextResponse) {
+  const locale = req.cookies.get('locale')?.value;
+
+  if (locale !== 'bg' && locale !== 'en') {
+    res.cookies.set('locale', 'bg', {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    });
+  }
+
+  return res;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (isPublicPath(pathname)) {
-    return NextResponse.next();
+    return withLocaleCookie(req, NextResponse.next());
   }
 
   const session = await readSession(req);
 
   if (!session) {
-    // if (pathname.startsWith('/api/')) {
-    //   return NextResponse.json(
-    //     { ok: false, error: 'Unauthorized' },
-    //     { status: 401 },
-    //   );
-    // }
-
     const url = req.nextUrl.clone();
     url.pathname = '/signin';
     url.searchParams.set(
       'callbackUrl',
       req.nextUrl.pathname + req.nextUrl.search,
     );
-    return NextResponse.redirect(url);
+
+    return withLocaleCookie(req, NextResponse.redirect(url));
   }
 
   if (
@@ -102,19 +97,22 @@ export async function middleware(req: NextRequest) {
     !pathname.startsWith('/api/auth/change-password')
   ) {
     if (pathname.startsWith('/api/')) {
-      return NextResponse.json(
-        { ok: false, error: 'password_change_required' },
-        { status: 403 },
+      return withLocaleCookie(
+        req,
+        NextResponse.json(
+          { ok: false, error: 'password_change_required' },
+          { status: 403 },
+        ),
       );
     }
 
     const url = req.nextUrl.clone();
     url.pathname = '/change-temporary-password';
-    return NextResponse.redirect(url);
+    return withLocaleCookie(req, NextResponse.redirect(url));
   }
 
   if (pathname.startsWith('/admin') && session.role !== 'ADMIN') {
-    return NextResponse.redirect(new URL('/', req.url));
+    return withLocaleCookie(req, NextResponse.redirect(new URL('/', req.url)));
   }
 
   if (
@@ -122,10 +120,10 @@ export async function middleware(req: NextRequest) {
     session.role !== 'COMPANY' &&
     session.role !== 'ADMIN'
   ) {
-    return NextResponse.redirect(new URL('/', req.url));
+    return withLocaleCookie(req, NextResponse.redirect(new URL('/', req.url)));
   }
 
-  return NextResponse.next();
+  return withLocaleCookie(req, NextResponse.next());
 }
 
 export const config = {

@@ -4,7 +4,7 @@ export function getResetPasswordEmailTemplate(resetLink: string) {
 <html lang="bg">
 <head>
   <meta charset="UTF-8" />
-  <title>Нулиране на парола – AutoRent</title>
+  <title>Нулиране на парола – SmartRent</title>
 </head>
 <body style="margin:0; padding:0; background-color:#f4f6f8; font-family:Arial, Helvetica, sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0">
@@ -13,7 +13,7 @@ export function getResetPasswordEmailTemplate(resetLink: string) {
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:#111827; padding:24px; text-align:center;">
-              <h1 style="margin:0; color:#ffffff; font-size:24px;">AutoRent</h1>
+              <h1 style="margin:0; color:#ffffff; font-size:24px;">SmartRent</h1>
             </td>
           </tr>
           <tr>
@@ -21,7 +21,7 @@ export function getResetPasswordEmailTemplate(resetLink: string) {
               <h2 style="margin-top:0; color:#111827; font-size:20px;">Нулиране на паролата</h2>
               <p style="color:#374151; font-size:15px; line-height:1.6;">Здравей,</p>
               <p style="color:#374151; font-size:15px; line-height:1.6;">
-                Получихме заявка за нулиране на паролата ти в <strong>AutoRent</strong>.
+                Получихме заявка за нулиране на паролата ти в <strong>SmartRent</strong>.
                 Натисни бутона по-долу, за да зададеш нова парола.
               </p>
               <div style="text-align:center; margin:32px 0;">
@@ -43,14 +43,14 @@ export function getResetPasswordEmailTemplate(resetLink: string) {
               </p>
               <p style="color:#374151; font-size:14px; margin-top:32px;">
                 Поздрави,<br />
-                <strong>Екипът на AutoRent</strong>
+                <strong>Екипът на SmartRent</strong>
               </p>
             </td>
           </tr>
           <tr>
             <td style="background:#f9fafb; padding:20px; text-align:center;">
               <p style="margin:0; font-size:12px; color:#9ca3af;">
-                © ${new Date().getFullYear()} AutoRent. Всички права запазени.
+                © ${new Date().getFullYear()} SmartRent. Всички права запазени.
               </p>
             </td>
           </tr>

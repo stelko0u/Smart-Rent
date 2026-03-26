@@ -3,7 +3,7 @@ import { UserRepository } from '@/lib/repository/UserRepository';
 import { PasswordResetTokenRepository } from '@/lib/repository/PasswordResetTokenRepository';
 import { getResetPasswordEmailTemplate } from '@/lib/mail/templates/resetPasswordTemplate';
 import { isValidEmail, normalizeEmail } from '@/lib/utils/email';
-import { sendMail } from '@/lib/mail/mailer';
+import { sendMail } from '@/lib/mail/sendMail';
 
 export async function sendForgotPasswordEmail(rawEmail: string) {
   const normalizedEmail = normalizeEmail(rawEmail);

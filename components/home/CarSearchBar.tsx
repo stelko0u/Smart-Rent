@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useCarSearch } from '@/providers/CarSearchProvider';
+import { useTranslation } from '@/providers/LanguageProvider';
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
@@ -30,6 +31,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 }
 
 export default function CarSearchBar() {
+  const { t } = useTranslation();
   const {
     filters,
     setFilter,
@@ -54,13 +56,18 @@ export default function CarSearchBar() {
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
-            Smart search
+            {t('searchBar.smartSearch')}
           </p>
+
           <h2 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">
-            Намери точния автомобил
+            {t('searchBar.findExactCar')}
           </h2>
+
           <p className="mt-1 text-sm text-gray-500">
-            {filteredCars.length} от {cars.length} автомобила
+            {t('searchBar.carsCount', {
+              filtered: filteredCars.length,
+              total: cars.length,
+            })}
           </p>
         </div>
 
@@ -70,7 +77,7 @@ export default function CarSearchBar() {
             onClick={() => setExpanded((v) => !v)}
             className="rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           >
-            {expanded ? 'Скрий филтрите' : 'Още филтри'}
+            {expanded ? t('searchBar.hideFilters') : t('searchBar.moreFilters')}
           </button>
 
           <button
@@ -78,29 +85,30 @@ export default function CarSearchBar() {
             onClick={resetFilters}
             className="rounded-2xl bg-black px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
           >
-            Изчисти {activeFilters > 0 ? `(${activeFilters})` : ''}
+            {t('searchBar.clear')}{' '}
+            {activeFilters > 0 ? `(${activeFilters})` : ''}
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div>
-          <Label>Търсене</Label>
+          <Label>{t('searchBar.query')}</Label>
           <Input
             type="text"
-            placeholder="Марка, модел, локация..."
+            placeholder={t('searchBar.queryPlaceholder')}
             value={filters.query}
             onChange={(e) => setFilter('query', e.target.value)}
           />
         </div>
 
         <div>
-          <Label>Марка</Label>
+          <Label>{t('searchBar.make')}</Label>
           <Select
             value={filters.make}
             onChange={(e) => setFilter('make', e.target.value)}
           >
-            <option value="">Всички марки</option>
+            <option value="">{t('searchBar.allMakes')}</option>
             {uniqueMakes.map((make) => (
               <option key={make} value={make}>
                 {make}
@@ -110,12 +118,12 @@ export default function CarSearchBar() {
         </div>
 
         <div>
-          <Label>Локация</Label>
+          <Label>{t('searchBar.location')}</Label>
           <Select
             value={filters.location}
             onChange={(e) => setFilter('location', e.target.value)}
           >
-            <option value="">Всички локации</option>
+            <option value="">{t('searchBar.allLocations')}</option>
             {uniqueLocations.map((location) => (
               <option key={location} value={location}>
                 {location}
@@ -125,12 +133,12 @@ export default function CarSearchBar() {
         </div>
 
         <div>
-          <Label>Вид купе</Label>
+          <Label>{t('searchBar.bodyType')}</Label>
           <Select
             value={filters.bodyType}
             onChange={(e) => setFilter('bodyType', e.target.value)}
           >
-            <option value="">Всички</option>
+            <option value="">{t('common.all')}</option>
             {uniqueBodyTypes.map((bodyType) => (
               <option key={bodyType} value={bodyType}>
                 {bodyType}
@@ -140,7 +148,7 @@ export default function CarSearchBar() {
         </div>
 
         <div>
-          <Label>Начална дата</Label>
+          <Label>{t('searchBar.startDate')}</Label>
           <Input
             type="date"
             value={filters.startDate}
@@ -149,7 +157,7 @@ export default function CarSearchBar() {
         </div>
 
         <div>
-          <Label>Крайна дата</Label>
+          <Label>{t('searchBar.endDate')}</Label>
           <Input
             type="date"
             value={filters.endDate}
@@ -160,12 +168,12 @@ export default function CarSearchBar() {
         {expanded && (
           <>
             <div>
-              <Label>Трансмисия</Label>
+              <Label>{t('searchBar.transmission')}</Label>
               <Select
                 value={filters.transmission}
                 onChange={(e) => setFilter('transmission', e.target.value)}
               >
-                <option value="">Всички</option>
+                <option value="">{t('common.all')}</option>
                 {uniqueTransmissions.map((transmission) => (
                   <option key={transmission} value={transmission}>
                     {transmission}
@@ -175,12 +183,12 @@ export default function CarSearchBar() {
             </div>
 
             <div>
-              <Label>Гориво</Label>
+              <Label>{t('searchBar.fuelType')}</Label>
               <Select
                 value={filters.fuelType}
                 onChange={(e) => setFilter('fuelType', e.target.value)}
               >
-                <option value="">Всички</option>
+                <option value="">{t('common.all')}</option>
                 {uniqueFuelTypes.map((fuelType) => (
                   <option key={fuelType} value={fuelType}>
                     {fuelType}
@@ -190,7 +198,7 @@ export default function CarSearchBar() {
             </div>
 
             <div>
-              <Label>Мин. цена / ден</Label>
+              <Label>{t('searchBar.minPrice')}</Label>
               <Input
                 type="number"
                 placeholder="50"
@@ -200,7 +208,7 @@ export default function CarSearchBar() {
             </div>
 
             <div>
-              <Label>Макс. цена / ден</Label>
+              <Label>{t('searchBar.maxPrice')}</Label>
               <Input
                 type="number"
                 placeholder="250"
@@ -210,7 +218,7 @@ export default function CarSearchBar() {
             </div>
 
             <div>
-              <Label>Мин. конски сили</Label>
+              <Label>{t('searchBar.minHorsepower')}</Label>
               <Input
                 type="number"
                 placeholder="100"
@@ -220,7 +228,7 @@ export default function CarSearchBar() {
             </div>
 
             <div>
-              <Label>Макс. конски сили</Label>
+              <Label>{t('searchBar.maxHorsepower')}</Label>
               <Input
                 type="number"
                 placeholder="500"
@@ -230,7 +238,7 @@ export default function CarSearchBar() {
             </div>
 
             <div>
-              <Label>Година от</Label>
+              <Label>{t('searchBar.yearFrom')}</Label>
               <Input
                 type="number"
                 placeholder="2018"
@@ -240,7 +248,7 @@ export default function CarSearchBar() {
             </div>
 
             <div>
-              <Label>Година до</Label>
+              <Label>{t('searchBar.yearTo')}</Label>
               <Input
                 type="number"
                 placeholder="2026"

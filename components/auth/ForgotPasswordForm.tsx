@@ -1,120 +1,131 @@
 'use client';
 
-import React, { useState } from 'react';
 import Link from 'next/link';
-import { requestPasswordReset } from '@/lib/api/userApi';
+import React, { useState } from 'react';
+import { useTranslation } from '@/providers/LanguageProvider';
 
-type FormStatus = 'idle' | 'loading' | 'success';
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+type ForgotPasswordResponse = {
+  ok?: boolean;
+  success?: boolean;
+  message?: string;
+  error?: string;
+};
 
 export default function ForgotPasswordForm() {
+  const { t } = useTranslation();
+
   const [email, setEmail] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<FormStatus>('idle');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const validateEmail = (value: string) => EMAIL_REGEX.test(value.trim());
+  function validate() {
+    if (!email.trim()) return t('validation.requiredEmail');
 
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value);
-    if (error) {
-      setError(null);
-    }
-  };
+    const emailRegex = /\S+@\S+\.\S+/;
+    if (!emailRegex.test(email)) return t('validation.invalidEmail');
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    return '';
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setError('');
+    setSuccess('');
 
-    const normalizedEmail = email.trim();
-    setError(null);
-
-    if (!validateEmail(normalizedEmail)) {
-      setError('Please enter a valid email address.');
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     try {
-      setStatus('loading');
+      setLoading(true);
 
-      await requestPasswordReset(normalizedEmail);
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
 
-      setStatus('success');
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'An error occurred. Please try again later.';
+      const data: ForgotPasswordResponse = await response
+        .json()
+        .catch(() => ({}));
 
-      setError(message);
-      setStatus('idle');
+      const hasExplicitFailure = data.ok === false || data.success === false;
+
+      if (!response.ok || hasExplicitFailure) {
+        setError(data.error || t('messages.unexpectedError'));
+        return;
+      }
+
+      setSuccess(data.message || t('messages.resetEmailSent'));
+      setEmail('');
+    } catch {
+      setError(t('messages.unexpectedError'));
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const isDisabled = status === 'loading' || status === 'success';
+  }
 
   return (
-    <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white border border-gray-200 rounded-lg shadow-sm p-8">
-        <header className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold text-gray-800">
-            Forgot Password
-          </h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Enter the email address associated with your account. You will
-            receive instructions to reset your password.
-          </p>
-        </header>
-
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Email address
-            </label>
-
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={email}
-              onChange={handleEmailChange}
-              className="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="you@example.com"
-              autoComplete="email"
-              disabled={isDisabled}
-              required
-            />
-          </div>
-
-          {error && <div className="text-sm text-red-600">{error}</div>}
-
-          {status === 'success' && (
-            <div className="text-sm text-green-700">
-              If there is an account with this email, you will receive
-              instructions on it.
-            </div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              disabled={isDisabled}
-              className="w-full inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-60"
-            >
-              {status === 'loading' ? 'Sending...' : 'Send Instructions'}
-            </button>
-          </div>
-        </form>
-
-        <footer className="mt-6 text-center text-sm text-gray-600">
-          <span>Return to </span>
-          <Link href="/signin" className="text-indigo-600 hover:underline">
-            Sign In
-          </Link>
-        </footer>
+    <div className="mx-auto w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">
+          {t('auth.forgotPasswordTitle')}
+        </h1>
+        <p className="mt-2 text-sm text-gray-600">
+          {t('auth.forgotPasswordSubtitle')}
+        </p>
       </div>
-    </main>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            {t('common.email')}
+          </label>
+          <input
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-11 w-full rounded-xl border border-gray-300 px-3 text-sm outline-none transition focus:border-black text-black"
+            placeholder="name@example.com"
+          />
+        </div>
+
+        {error ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        {success ? (
+          <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+            {success}
+          </div>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="h-11 w-full rounded-xl bg-black text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {loading ? t('auth.sending') : t('auth.requestResetLink')}
+        </button>
+      </form>
+
+      <div className="mt-4 text-sm text-gray-600">
+        {t('auth.rememberPassword')}{' '}
+        <Link
+          href="/signin"
+          className="font-medium text-blue-600 hover:underline"
+        >
+          {t('auth.signInHere')}
+        </Link>
+      </div>
+    </div>
   );
 }

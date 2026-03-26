@@ -1,35 +1,37 @@
 'use client';
 
-import React, { useState } from 'react';
-import { signOutUser } from '@/lib/api/userApi';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useTranslation } from '@/providers/LanguageProvider';
 
 export default function SignOutButton() {
+  const router = useRouter();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
 
-  const handleSignOut = async () => {
-    if (loading) return;
-
+  async function handleSignOut() {
     try {
       setLoading(true);
 
-      await signOutUser();
+      await fetch('/api/auth/signout', {
+        method: 'POST',
+      });
 
-      // по-добре от reload → гарантира чист state
-      window.location.assign('/');
-    } catch (err) {
-      console.error('Logout error:', err);
+      router.push('/');
+      router.refresh();
+    } catch {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <button
+      type="button"
       onClick={handleSignOut}
       disabled={loading}
-      type="button"
-      className="w-full px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-60 hover:scale-105 transition-all cursor-pointer"
+      className="w-full rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
     >
-      {loading ? 'Signing out...' : 'Sign Out'}
+      {loading ? t('common.loading') : t('auth.signOutButton')}
     </button>
   );
 }

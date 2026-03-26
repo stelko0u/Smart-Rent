@@ -14,11 +14,7 @@ export async function sendMail(payload: SendMailPayload) {
   const transporter = getMailerTransporter();
 
   const fallbackFrom =
-    process.env.EMAIL_FROM ??
-    process.env.SMTP_FROM ??
-    process.env.SMTP_USER ??
-    process.env.ABV_USER;
-
+    process.env.EMAIL_FROM ?? process.env.SMTP_FROM ?? process.env.SMTP_USER;
   if (!fallbackFrom && !payload.from) {
     throw new Error('email_from_not_configured');
   }
@@ -39,7 +35,7 @@ export async function sendMail(payload: SendMailPayload) {
       : '');
 
   return transporter.sendMail({
-    from: payload.from ?? `Smart Rent <${fallbackFrom}>`,
+    from: `${process.env.SMTP_FROM}`,
     to: recipients.join(', '),
     subject: payload.subject,
     text: plainText,
