@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 import Mail from 'nodemailer/lib/mailer';
 
-import { sendMail } from '@/lib/maila';
+import { sendMail } from '@/lib/mail/mailer';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.SITE_URL;
@@ -226,14 +226,11 @@ ${continueUrl}
 </html>
 `;
 
-  return sendMail(
-    {
-      to: reservation.email,
-      subject,
-      text,
-      html,
-      attachments,
-    },
-    'abv',
-  );
+  return sendMail({
+    to: reservation.email,
+    subject,
+    text,
+    html,
+    attachments,
+  });
 }

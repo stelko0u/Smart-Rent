@@ -50,7 +50,6 @@ export type TransmissionType =
 
 export type FuelType = 'PETROL' | 'DIESEL' | 'ELECTRICITY';
 
-
 export interface Company {
   id: number;
   name: string;
@@ -59,7 +58,7 @@ export interface Company {
   ownerId?: number | null;
   createdAt?: string;
   updatedAt?: string;
-  office: Office
+  office: Office;
 }
 
 export interface Office {
@@ -110,7 +109,16 @@ export type CarRow = {
   year?: number;
   pricePerDay?: number;
   companyId?: number;
-  images?: Array<string>;
+  companyName?: string;
+  images?: string[];
+  office: {
+    name: string;
+    address: string;
+  };
+  carType?: string;
+  transmissionType?: string;
+  power?: number;
+  fuelType?: string;
 };
 
 // export type Company = {

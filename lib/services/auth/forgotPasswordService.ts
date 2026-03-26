@@ -1,9 +1,9 @@
 import crypto from 'crypto';
 import { UserRepository } from '@/lib/repository/UserRepository';
 import { PasswordResetTokenRepository } from '@/lib/repository/PasswordResetTokenRepository';
-import { getMailerTransporter } from '@/lib/mail/mailer';
 import { getResetPasswordEmailTemplate } from '@/lib/mail/templates/resetPasswordTemplate';
 import { isValidEmail, normalizeEmail } from '@/lib/utils/email';
+import { sendMail } from '@/lib/mail/mailer';
 
 export async function sendForgotPasswordEmail(rawEmail: string) {
   const normalizedEmail = normalizeEmail(rawEmail);
@@ -14,7 +14,6 @@ export async function sendForgotPasswordEmail(rawEmail: string) {
 
   const user = await UserRepository.findByEmail(normalizedEmail);
 
-  // Не издаваме дали има такъв акаунт
   if (!user) {
     return {
       success: true,
@@ -36,20 +35,19 @@ export async function sendForgotPasswordEmail(rawEmail: string) {
     expiresAt,
   });
 
-  const host = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const host =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.SITE_URL ??
+    'http://localhost:3000';
+
   const resetLink = `${host}/reset-password?token=${rawToken}&email=${encodeURIComponent(
     normalizedEmail,
   )}`;
 
-  const transporter = await getMailerTransporter();
-
-  await transporter.sendMail({
-    from:
-      process.env.EMAIL_FROM ||
-      process.env.ABV_USER ||
-      `no-reply@${new URL(host).hostname}`,
+  await sendMail({
     to: normalizedEmail,
     subject: 'Инструкции за нулиране на паролата',
+    text: `Отвори този линк, за да зададеш нова парола: ${resetLink}`,
     html: getResetPasswordEmailTemplate(resetLink),
   });
 

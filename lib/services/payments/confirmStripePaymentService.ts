@@ -3,7 +3,7 @@ import {
   getChargeIdForPaymentIntent,
   getPaymentIntentOrThrow,
 } from '@/lib/services/stripe/paymentIntents';
-import { getReservationCarCompanyOrThrow } from '@/lib/services/payments/paymentContextService';
+import { getReservationCarCompanyForPaymentOrThrow } from '@/lib/services/payments/paymentContextService';
 import { saveConfirmedPayment } from '@/lib/services/payments/saveConfirmedPayment';
 import { tryCreateAndSendCustomerInvoice } from '@/lib/services/payments/customerInvoiceService';
 
@@ -27,7 +27,7 @@ export async function confirmStripePayment(paymentIntentId: string) {
   }
 
   const { reservation, car, company } =
-    await getReservationCarCompanyOrThrow(reservationId);
+    await getReservationCarCompanyForPaymentOrThrow(reservationId);
 
   const totalAmount = Number((paymentIntent.amount / 100).toFixed(2));
   const applicationFeeAmount = paymentIntent.application_fee_amount || 0;

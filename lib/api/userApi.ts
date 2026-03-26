@@ -133,7 +133,7 @@ export async function getLoggedInUser(): Promise<any | null> {
 export async function verifyResetToken(
   payload: VerifyResetTokenPayload,
 ): Promise<VerifyResetTokenResponse> {
-  const res = await fetch('/api/verify-reset-token', {
+  const res = await fetch('/api/auth/verify-reset-token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -143,52 +143,6 @@ export async function verifyResetToken(
   return data;
 }
 
-export async function resetPassword(
-  payload: ResetPasswordPayload,
-): Promise<ResetPasswordResponse> {
-  const res = await fetch('/api/reset-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data?.error || 'Error resetting password.');
-  }
-
-  return data;
-}
-
-export async function requestPasswordReset(email: string): Promise<{
-  success: boolean;
-  message: string;
-}> {
-  const res = await fetch('/api/forgot-password', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({ email }),
-  });
-
-  const data = await res.json().catch(() => null);
-
-  if (!res.ok) {
-    throw new Error(
-      data?.error || 'An error occurred. Please try again later.',
-    );
-  }
-
-  return {
-    success: Boolean(data?.success),
-    message:
-      data?.message ||
-      'If there is an account with this email, you will receive instructions.',
-  };
-}
 
 export async function signInUser(
   payload: SignInPayload,
@@ -385,4 +339,51 @@ export async function getUserReviews(): Promise<UserReview[]> {
   }
 
   return data?.reviews ?? [];
+}
+
+export async function resetPassword(
+  payload: ResetPasswordPayload,
+): Promise<ResetPasswordResponse> {
+  const res = await fetch('/api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data?.error || 'Error resetting password.');
+  }
+
+  return data;
+}
+
+export async function requestPasswordReset(email: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  const res = await fetch('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    throw new Error(
+      data?.error || 'An error occurred. Please try again later.',
+    );
+  }
+
+  return {
+    success: Boolean(data?.success),
+    message:
+      data?.message ||
+      'If there is an account with this email, you will receive instructions.',
+  };
 }

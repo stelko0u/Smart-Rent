@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
-import { sendVerificationEmail } from '../../../../lib/maila';
 import { UserRepository } from '@/lib/repository/UserRepository';
+import { sendVerificationEmail } from '@/lib/mail/sendVerificationEmail';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
@@ -31,19 +33,22 @@ export async function POST(req: Request) {
       );
     }
 
-    await sendVerificationEmail(user.email, user.id);
+    await sendVerificationEmail(user.email, user.id, user.name);
 
     return NextResponse.json({
       success: true,
       message: 'Verification email sent.',
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('resend-verification API error:', err);
+
     return NextResponse.json(
       {
         error:
           process.env.NODE_ENV !== 'production'
-            ? String(err)
+            ? err instanceof Error
+              ? err.message
+              : 'Unknown error'
             : 'Internal server error.',
       },
       { status: 500 },

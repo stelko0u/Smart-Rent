@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { sendVerificationEmail } from '../../../../lib/maila';
 import { UserRepository } from '@/lib/repository/UserRepository';
+import { sendVerificationEmail } from '@/lib/mail/sendVerificationEmail';
 
 export const runtime = 'nodejs';
 
@@ -166,11 +166,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const hashed = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await UserRepository.create({
       email,
-      password: hashed,
+      password: hashedPassword,
       phone,
       address,
       city,
@@ -184,7 +184,7 @@ export async function POST(req: Request) {
     });
 
     try {
-      await sendVerificationEmail(user.email, user.id);
+      await sendVerificationEmail(user.email, user.id, user.name);
     } catch (sendErr) {
       console.error('sendVerificationEmail failed:', sendErr);
     }
@@ -192,6 +192,8 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         ok: true,
+        message:
+          'Registration successful. Please check your email to verify your account.',
         user: {
           id: user.id,
           email: user.email,
@@ -202,6 +204,7 @@ export async function POST(req: Request) {
           country: user.country,
           postalCode: user.postalCode,
           dateOfBirth: user.dateOfBirth,
+          emailVerified: user.emailVerified,
         },
       },
       { status: 201 },

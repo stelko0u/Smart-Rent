@@ -44,4 +44,19 @@ export class PasswordResetTokenRepository {
     );
     return result.length > 0;
   }
+
+  static async findByEmailAndToken(
+    email: string,
+    token: string,
+  ): Promise<PasswordResetToken | null> {
+    return queryOne<PasswordResetToken>(
+      `SELECT * 
+       FROM "PasswordResetToken" 
+       WHERE email = $1 
+         AND token = $2
+         AND "expiresAt" >= NOW()
+       LIMIT 1`,
+      [email, token],
+    );
+  }
 }

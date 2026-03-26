@@ -61,6 +61,24 @@ export class ReviewRepository {
     return rows.length > 0;
   }
 
+  static async findByUser(userId: number): Promise<Review[]> {
+    return query<Review>(
+      `
+      SELECT
+        id,
+        "userId",
+        "carId",
+        rating,
+        comment,
+        "createdAt"
+      FROM "Review"
+      WHERE "userId" = $1
+      ORDER BY "createdAt" DESC
+      `,
+      [userId],
+    );
+  }
+
   static async hasUserReviewedReservation(
     userId: number,
     carId: number,

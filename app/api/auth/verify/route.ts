@@ -8,16 +8,20 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get('token');
-    const JWT_SECRET = process.env.JWT_SECRET;
+    const jwtSecret = process.env.JWT_SECRET;
 
-    if (!token || !JWT_SECRET) {
+    if (!token || !jwtSecret) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
-    let payload: any;
+    let payload: { userId?: number | string; type?: string };
+
     try {
-      payload = jwt.verify(token, JWT_SECRET);
-    } catch (err) {
+      payload = jwt.verify(token, jwtSecret) as {
+        userId?: number | string;
+        type?: string;
+      };
+    } catch {
       return NextResponse.json(
         { error: 'Invalid or expired token' },
         { status: 400 },
@@ -29,6 +33,7 @@ export async function GET(req: Request) {
     }
 
     const userId = Number(payload.userId);
+
     if (Number.isNaN(userId)) {
       return NextResponse.json(
         { error: 'Invalid user id in token' },
@@ -37,6 +42,7 @@ export async function GET(req: Request) {
     }
 
     const user = await UserRepository.findById(userId);
+
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -45,13 +51,19 @@ export async function GET(req: Request) {
       await UserRepository.update(userId, { emailVerified: true });
     }
 
-    const frontend = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-    const redirectUrl = `${frontend}/signin?verified=1`;
-    return NextResponse.redirect(redirectUrl);
-  } catch (err: any) {
+    const frontend =
+      process.env.NEXT_PUBLIC_APP_URL ??
+      process.env.SITE_URL ??
+      'http://localhost:3000';
+
+    return NextResponse.redirect(`${frontend}/signin?verified=1`);
+  } catch (err: unknown) {
     console.error('GET /api/auth/verify error:', err);
+
     return NextResponse.json(
-      { error: err?.message ?? 'Server error' },
+      {
+        error: err instanceof Error ? err.message : 'Server error',
+      },
       { status: 500 },
     );
   }

@@ -1,5 +1,4 @@
-import { createTransporter } from '@/lib/maila';
-import { getMailerTransporter } from './mailer';
+import { createTransporter } from '@/lib/mail/mailer';
 
 type SendCompanyCredentialsEmailInput = {
   companyName: string;
@@ -20,8 +19,15 @@ function escapeHtml(value: string) {
 export async function sendCompanyCredentialsEmail(
   input: SendCompanyCredentialsEmailInput,
 ) {
-  const from = process.env.SMTP_FROM ?? process.env.SMTP_USER;
-  if (!from) throw new Error('smtp_from_not_configured');
+  const from =
+    process.env.EMAIL_FROM ??
+    process.env.SMTP_FROM ??
+    process.env.SMTP_USER ??
+    process.env.ABV_USER;
+
+  if (!from) {
+    throw new Error('smtp_from_not_configured');
+  }
 
   const devOverride = process.env.DEV_ONBOARDING_EMAIL_OVERRIDE?.trim();
   const to =
@@ -29,14 +35,14 @@ export async function sendCompanyCredentialsEmail(
       ? devOverride
       : input.to;
 
-  const transporter = createTransporter('abv');
+  const transporter = createTransporter();
 
   const safeCompanyName = escapeHtml(input.companyName);
   const safeLoginEmail = escapeHtml(input.loginEmail);
   const safeTemporaryPassword = escapeHtml(input.temporaryPassword);
 
   await transporter.sendMail({
-    from,
+    from: `AutoRent <${from}>`,
     to,
     subject: 'AutoRent: Временна парола за достъп',
     text: [

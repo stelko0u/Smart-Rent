@@ -33,11 +33,11 @@ function normalizeRole(role: unknown): 'USER' | 'ADMIN' | 'COMPANY' | null {
 function getRedirectByRole(role: 'USER' | 'ADMIN' | 'COMPANY' | null) {
   switch (role) {
     case 'ADMIN':
-      return '/';
     case 'COMPANY':
+    case 'USER':
       return '/';
     default:
-      return '/signin';
+      return '/';
   }
 }
 
