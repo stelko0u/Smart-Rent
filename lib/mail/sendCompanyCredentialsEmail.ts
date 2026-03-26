@@ -1,4 +1,4 @@
-import { createTransporter } from '@/lib/mail';
+import { createTransporter } from '@/lib/maila';
 import { getMailerTransporter } from './mailer';
 
 type SendCompanyCredentialsEmailInput = {

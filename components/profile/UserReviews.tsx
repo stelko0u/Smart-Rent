@@ -2,21 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-interface Review {
-  id: number;
-  carId: number;
-  rating: number;
-  comment?: string;
-  createdAt: string;
-  car?: {
-    id: number;
-    make: string;
-    model: string;
-    year: number;
-    images: string[];
-  };
-}
+import { getUserReviews, type UserReview } from '@/lib/api/userApi';
 
 interface Props {
   userId: number;
@@ -24,32 +10,42 @@ interface Props {
 
 export default function UserReviews({ userId }: Props) {
   const router = useRouter();
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviews, setReviews] = useState<UserReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadReviews();
-  }, [userId]);
+    let isActive = true;
 
-  const loadReviews = async () => {
-    try {
-      const res = await fetch('/api/user/reviews', {
-        credentials: 'include',
-      });
+    const loadReviews = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      if (!res.ok) {
-        throw new Error('Failed to load reviews');
+        const data = await getUserReviews();
+
+        if (!isActive) return;
+        setReviews(data);
+      } catch (err) {
+        if (!isActive) return;
+
+        const message =
+          err instanceof Error ? err.message : 'Failed to load reviews';
+
+        setError(message);
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
       }
+    };
 
-      const data = await res.json();
-      setReviews(data.reviews || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load reviews');
-    } finally {
-      setLoading(false);
-    }
-  };
+    void loadReviews();
+
+    return () => {
+      isActive = false;
+    };
+  }, [userId]);
 
   const renderStars = (rating: number) => {
     return (
@@ -57,7 +53,9 @@ export default function UserReviews({ userId }: Props) {
         {[1, 2, 3, 4, 5].map((star) => (
           <svg
             key={star}
-            className={`w-5 h-5 ${star <= rating ? 'text-yellow-400' : 'text-gray-300'}`}
+            className={`h-5 w-5 ${
+              star <= rating ? 'text-yellow-400' : 'text-gray-300'
+            }`}
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -70,7 +68,7 @@ export default function UserReviews({ userId }: Props) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-8">
+      <div className="rounded-lg bg-white p-8 shadow">
         <div className="text-center text-gray-500">Loading reviews...</div>
       </div>
     );
@@ -78,17 +76,17 @@ export default function UserReviews({ userId }: Props) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-8">
+      <div className="rounded-lg bg-white p-8 shadow">
         <div className="text-red-600">{error}</div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow">
-      <div className="p-6 border-b">
+    <div className="rounded-lg bg-white shadow">
+      <div className="border-b p-6">
         <h2 className="text-xl font-semibold text-gray-800">My Reviews</h2>
-        <p className="text-sm text-gray-600 mt-1">
+        <p className="mt-1 text-sm text-gray-600">
           Reviews you've written for rented cars
         </p>
       </div>
@@ -97,7 +95,7 @@ export default function UserReviews({ userId }: Props) {
         {reviews.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <svg
-              className="w-16 h-16 mx-auto mb-4 text-gray-300"
+              className="mx-auto mb-4 h-16 w-16 text-gray-300"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -110,28 +108,28 @@ export default function UserReviews({ userId }: Props) {
               />
             </svg>
             <p>No reviews yet</p>
-            <p className="text-sm mt-2">
+            <p className="mt-2 text-sm">
               Rent a car and share your experience!
             </p>
           </div>
         ) : (
           reviews.map((review) => (
-            <div key={review.id} className="p-6 hover:bg-gray-50 transition">
+            <div key={review.id} className="p-6 transition hover:bg-gray-50">
               <div className="flex gap-4">
                 {review.car?.images?.[0] && (
                   <img
                     src={review.car.images[0]}
                     alt={`${review.car.make} ${review.car.model}`}
-                    className="w-24 h-20 object-cover rounded-lg cursor-pointer"
+                    className="h-20 w-24 cursor-pointer rounded-lg object-cover"
                     onClick={() => router.push(`/car/${review.carId}`)}
                   />
                 )}
 
                 <div className="flex-1">
-                  <div className="flex items-start justify-between mb-2">
+                  <div className="mb-2 flex items-start justify-between">
                     <div>
                       <h3
-                        className="font-semibold text-gray-900 cursor-pointer hover:text-indigo-600"
+                        className="cursor-pointer font-semibold text-gray-900 hover:text-indigo-600"
                         onClick={() => router.push(`/car/${review.carId}`)}
                       >
                         {review.car?.make} {review.car?.model}
@@ -140,11 +138,12 @@ export default function UserReviews({ userId }: Props) {
                         {new Date(review.createdAt).toLocaleDateString()}
                       </p>
                     </div>
+
                     {renderStars(review.rating)}
                   </div>
 
                   {review.comment && (
-                    <p className="text-gray-700 text-sm mt-2">
+                    <p className="mt-2 text-sm text-gray-700">
                       {review.comment}
                     </p>
                   )}

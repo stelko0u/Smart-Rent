@@ -2,17 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-interface Car {
-  id: number;
-  make: string;
-  model: string;
-  year: number;
-  pricePerDay: number;
-  images: string[];
-  carType: string;
-  transmissionType: string;
-}
+import {
+  getFavoriteCars,
+  removeFavoriteCar,
+  type FavoriteCar,
+} from '@/lib/api/userApi';
 
 interface Props {
   userId: number;
@@ -20,51 +14,61 @@ interface Props {
 
 export default function LikedCars({ userId }: Props) {
   const router = useRouter();
-  const [cars, setCars] = useState<Car[]>([]);
+  const [cars, setCars] = useState<FavoriteCar[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<number | null>(null);
 
   useEffect(() => {
-    loadFavorites();
+    let isActive = true;
+
+    const loadFavorites = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const favorites = await getFavoriteCars();
+
+        if (!isActive) return;
+        setCars(favorites);
+      } catch (err) {
+        if (!isActive) return;
+
+        const message =
+          err instanceof Error ? err.message : 'Failed to load favorites';
+
+        setError(message);
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadFavorites();
+
+    return () => {
+      isActive = false;
+    };
   }, [userId]);
 
-  const loadFavorites = async () => {
-    try {
-      const res = await fetch('/api/user/favorites', {
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to load favorites');
-      }
-
-      const data = await res.json();
-      setCars(data.favorites || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load favorites');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleRemoveFavorite = async (carId: number) => {
-    try {
-      const res = await fetch(`/api/user/favorites/${carId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+    if (removingId === carId) return;
 
-      if (res.ok) {
-        setCars(cars.filter((car) => car.id !== carId));
-      }
+    try {
+      setRemovingId(carId);
+      await removeFavoriteCar(carId);
+      setCars((prev) => prev.filter((car) => car.id !== carId));
     } catch (err) {
       console.error('Failed to remove favorite:', err);
+    } finally {
+      setRemovingId(null);
     }
   };
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-8">
+      <div className="rounded-lg bg-white p-8 shadow">
         <div className="text-center text-gray-500">Loading favorites...</div>
       </div>
     );
@@ -72,26 +76,26 @@ export default function LikedCars({ userId }: Props) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-8">
+      <div className="rounded-lg bg-white p-8 shadow">
         <div className="text-red-600">{error}</div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow">
-      <div className="p-6 border-b">
+    <div className="rounded-lg bg-white shadow">
+      <div className="border-b p-6">
         <h2 className="text-xl font-semibold text-gray-800">Liked Cars</h2>
-        <p className="text-sm text-gray-600 mt-1">
+        <p className="mt-1 text-sm text-gray-600">
           Cars you've saved for later
         </p>
       </div>
 
       <div className="p-6">
         {cars.length === 0 ? (
-          <div className="text-center text-gray-500 py-12">
+          <div className="py-12 text-center text-gray-500">
             <svg
-              className="w-16 h-16 mx-auto mb-4 text-gray-300"
+              className="mx-auto mb-4 h-16 w-16 text-gray-300"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -103,38 +107,43 @@ export default function LikedCars({ userId }: Props) {
                 d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
               />
             </svg>
+
             <p>No liked cars yet</p>
-            <p className="text-sm mt-2">Browse cars and save your favorites!</p>
+            <p className="mt-2 text-sm">Browse cars and save your favorites!</p>
+
             <button
               onClick={() => router.push('/')}
-              className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              className="mt-4 rounded-lg bg-indigo-600 px-6 py-2 text-white hover:bg-indigo-700"
             >
               Browse Cars
             </button>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid gap-6 md:grid-cols-2">
             {cars.map((car) => (
               <div
                 key={car.id}
-                className="border rounded-lg overflow-hidden hover:shadow-lg transition group"
+                className="group overflow-hidden rounded-lg border transition hover:shadow-lg"
               >
                 <div className="relative">
                   {car.images?.[0] && (
                     <img
                       src={car.images[0]}
                       alt={`${car.make} ${car.model}`}
-                      className="w-full h-48 object-cover cursor-pointer"
+                      className="h-48 w-full cursor-pointer object-cover"
                       onClick={() => router.push(`/car/${car.id}`)}
                     />
                   )}
+
                   <button
                     onClick={() => handleRemoveFavorite(car.id)}
-                    className="absolute top-3 right-3 p-2 bg-white/90 rounded-full hover:bg-red-500 hover:text-white transition shadow-lg"
+                    disabled={removingId === car.id}
+                    className="absolute right-3 top-3 rounded-full bg-white/90 p-2 shadow-lg transition hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                     title="Remove from favorites"
+                    type="button"
                   >
                     <svg
-                      className="w-5 h-5"
+                      className="h-5 w-5"
                       fill="currentColor"
                       viewBox="0 0 20 20"
                     >
@@ -149,14 +158,15 @@ export default function LikedCars({ userId }: Props) {
 
                 <div className="p-4">
                   <h3
-                    className="font-semibold text-lg text-gray-900 mb-1 cursor-pointer hover:text-indigo-600"
+                    className="mb-1 cursor-pointer text-lg font-semibold text-gray-900 hover:text-indigo-600"
                     onClick={() => router.push(`/car/${car.id}`)}
                   >
                     {car.make} {car.model}
                   </h3>
-                  <p className="text-sm text-gray-600 mb-3">{car.year}</p>
 
-                  <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+                  <p className="mb-3 text-sm text-gray-600">{car.year}</p>
+
+                  <div className="mb-3 flex items-center gap-4 text-xs text-gray-500">
                     <span>{car.carType}</span>
                     <span>•</span>
                     <span>{car.transmissionType}</span>
@@ -172,7 +182,8 @@ export default function LikedCars({ userId }: Props) {
 
                     <button
                       onClick={() => router.push(`/reservation/${car.id}`)}
-                      className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition"
+                      className="rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white transition hover:bg-indigo-700"
+                      type="button"
                     >
                       Rent Now
                     </button>

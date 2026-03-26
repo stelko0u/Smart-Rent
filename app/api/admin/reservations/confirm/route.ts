@@ -1,45 +1,8 @@
 import { NextResponse } from 'next/server';
-import { AuthError, requireAuthUserFromRequest } from '@/lib/auth';
 import { ReservationRepository } from '@/lib/repository/ReservationRepository';
-import { sendVerificationEmail } from '@/lib/mail';
+import { requireAdmin } from '@/lib/auth/requireAdmin';
 
-async function requireAdmin(req: Request) {
-  try {
-    const user = await requireAuthUserFromRequest(req);
 
-    if (user.role !== 'ADMIN') {
-      return {
-        ok: false as const,
-        resp: NextResponse.json(
-          { ok: false, error: 'Forbidden' },
-          { status: 403 },
-        ),
-      };
-    }
-
-    return { ok: true as const, user };
-  } catch (err) {
-    if (err instanceof AuthError) {
-      return {
-        ok: false as const,
-        resp: NextResponse.json(
-          { ok: false, error: err.message },
-          { status: err.status },
-        ),
-      };
-    }
-
-    return {
-      ok: false as const,
-      resp: NextResponse.json(
-        { ok: false, error: 'Unauthorized' },
-        { status: 401 },
-      ),
-    };
-  }
-}
-
-// временно mock, докато вържеш реален mail flow
 const sendReservationEmail = async (to: string, reservationDetails: any) => {
   console.log('Sending reservation email to:', to);
   console.log('Reservation details:', reservationDetails);

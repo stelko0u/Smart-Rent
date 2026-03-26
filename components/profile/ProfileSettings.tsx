@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import {
+  changeUserPassword,
+  updateUserProfile,
+  type ChangePasswordPayload,
+  type UpdateUserProfilePayload,
+} from '@/lib/api/userApi';
 
 interface User {
   id: number;
@@ -19,63 +25,136 @@ interface Props {
   onUpdate: () => void;
 }
 
+type ProfileFormData = {
+  name: string;
+  phone: string;
+  address: string;
+  city: string;
+  country: string;
+  postalCode: string;
+  dateOfBirth: string;
+};
+
+type PasswordFormData = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+function formatDateForInput(date?: string): string {
+  if (!date) return '';
+
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  return parsed.toISOString().split('T')[0];
+}
+
 export default function ProfileSettings({ user, onUpdate }: Props) {
-  const [formData, setFormData] = useState({
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [formData, setFormData] = useState<ProfileFormData>({
     name: user.name || '',
     phone: user.phone || '',
     address: user.address || '',
     city: user.city || '',
     country: user.country || '',
     postalCode: user.postalCode || '',
-    dateOfBirth: user.dateOfBirth
-      ? new Date(user.dateOfBirth).toISOString().split('T')[0]
-      : '',
+    dateOfBirth: formatDateForInput(user.dateOfBirth),
   });
 
-  const [passwordData, setPasswordData] = useState({
+  const [passwordData, setPasswordData] = useState<PasswordFormData>({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
 
-  const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const handleProfileUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const showSuccessMessage = (message: string) => {
+    setSuccess(message);
+
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+    }
+
+    successTimeoutRef.current = setTimeout(() => {
+      setSuccess(null);
+    }, 3000);
+  };
+
+  const clearMessages = () => {
     setError(null);
     setSuccess(null);
+  };
+
+  const updateProfileField =
+    (field: keyof ProfileFormData) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+
+      setFormData((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+
+      if (error || success) {
+        clearMessages();
+      }
+    };
+
+  const updatePasswordField =
+    (field: keyof PasswordFormData) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+
+      setPasswordData((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+
+      if (error || success) {
+        clearMessages();
+      }
+    };
+
+  const handleProfileUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    clearMessages();
 
     try {
-      const res = await fetch('/api/user/profile', {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+      setProfileLoading(true);
 
-      const data = await res.json();
+      const payload: UpdateUserProfilePayload = {
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        address: formData.address.trim(),
+        city: formData.city.trim(),
+        country: formData.country.trim(),
+        postalCode: formData.postalCode.trim(),
+        dateOfBirth: formData.dateOfBirth || '',
+      };
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to update profile');
-      }
+      await updateUserProfile(payload);
 
-      setSuccess('Profile updated successfully!');
+      showSuccessMessage('Profile updated successfully!');
       onUpdate();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to update profile';
 
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to update profile');
+      setError(message);
     } finally {
-      setLoading(false);
+      setProfileLoading(false);
     }
   };
 
-  const handlePasswordChange = async (e: React.FormEvent) => {
+  const handlePasswordChange = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    clearMessages();
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setError('Passwords do not match');
@@ -87,54 +166,43 @@ export default function ProfileSettings({ user, onUpdate }: Props) {
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-
     try {
-      const res = await fetch('/api/user/change-password', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword,
-        }),
-      });
+      setPasswordLoading(true);
 
-      const data = await res.json();
+      const payload: ChangePasswordPayload = {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      };
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to change password');
-      }
+      await changeUserPassword(payload);
 
-      setSuccess('Password changed successfully!');
+      showSuccessMessage('Password changed successfully!');
       setPasswordData({
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
       });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to change password';
 
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to change password');
+      setError(message);
     } finally {
-      setLoading(false);
+      setPasswordLoading(false);
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-6 text-gray-800">
+      <div className="rounded-lg bg-white p-6 shadow">
+        <h2 className="mb-6 text-xl font-semibold text-gray-800">
           Profile Information
         </h2>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg flex items-start gap-2">
+          <div className="mb-4 flex items-start gap-2 rounded-lg bg-red-100 p-4 text-red-700">
             <svg
-              className="w-5 h-5 mt-0.5 shrink-0"
+              className="mt-0.5 h-5 w-5 shrink-0"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -149,9 +217,9 @@ export default function ProfileSettings({ user, onUpdate }: Props) {
         )}
 
         {success && (
-          <div className="mb-4 p-4 bg-green-100 text-green-700 rounded-lg flex items-start gap-2">
+          <div className="mb-4 flex items-start gap-2 rounded-lg bg-green-100 p-4 text-green-700">
             <svg
-              className="w-5 h-5 mt-0.5 shrink-0"
+              className="mt-0.5 h-5 w-5 shrink-0"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -166,195 +234,166 @@ export default function ProfileSettings({ user, onUpdate }: Props) {
         )}
 
         <form onSubmit={handleProfileUpdate} className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Full Name
               </label>
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                onChange={updateProfileField('name')}
                 placeholder="Enter your full name"
-                className="w-full px-4 py-2 border text-gray-600 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-600 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Email
               </label>
               <input
                 type="email"
                 value={user.email}
                 disabled
-                className="w-full px-4 py-2 border  border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                className="w-full cursor-not-allowed rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-gray-500"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="mt-1 text-xs text-gray-500">
                 Email cannot be changed
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Phone Number
               </label>
               <input
                 type="tel"
                 value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
+                onChange={updateProfileField('phone')}
                 placeholder="0888 123 456"
-                className="w-full px-4 py-2 border text-gray-600 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-600 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Date of Birth
               </label>
               <input
                 type="date"
                 value={formData.dateOfBirth}
-                onChange={(e) =>
-                  setFormData({ ...formData, dateOfBirth: e.target.value })
-                }
-                className="w-full px-4 py-2 border text-gray-600   border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                onChange={updateProfileField('dateOfBirth')}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-600 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Address
               </label>
               <input
                 type="text"
                 value={formData.address}
-                onChange={(e) =>
-                  setFormData({ ...formData, address: e.target.value })
-                }
+                onChange={updateProfileField('address')}
                 placeholder="Street address"
-                className="w-full px-4 py-2 border text-gray-600 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-600 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 City
               </label>
               <input
                 type="text"
                 value={formData.city}
-                onChange={(e) =>
-                  setFormData({ ...formData, city: e.target.value })
-                }
+                onChange={updateProfileField('city')}
                 placeholder="City"
-                className="w-full px-4 py-2 border text-gray-600   border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-600 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Postal Code
               </label>
               <input
                 type="text"
                 value={formData.postalCode}
-                onChange={(e) =>
-                  setFormData({ ...formData, postalCode: e.target.value })
-                }
+                onChange={updateProfileField('postalCode')}
                 placeholder="12345"
-                className="w-full px-4 py-2 border text-gray-600 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-600 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Country
               </label>
               <input
                 type="text"
                 value={formData.country}
-                onChange={(e) =>
-                  setFormData({ ...formData, country: e.target.value })
-                }
+                onChange={updateProfileField('country')}
                 placeholder="Country"
-                className="w-full px-4 py-2 border text-gray-600 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-600 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               />
             </div>
           </div>
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full md:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+            disabled={profileLoading}
+            className="w-full rounded-lg bg-indigo-600 px-6 py-2 text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-400 md:w-auto"
           >
-            {loading ? 'Saving...' : 'Save Changes'}
+            {profileLoading ? 'Saving...' : 'Save Changes'}
           </button>
         </form>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-6 text-gray-800">
+      <div className="rounded-lg bg-white p-6 shadow">
+        <h2 className="mb-6 text-xl font-semibold text-gray-800">
           Change Password
         </h2>
 
         <form onSubmit={handlePasswordChange} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Current Password
             </label>
             <input
               type="password"
               value={passwordData.currentPassword}
-              onChange={(e) =>
-                setPasswordData({
-                  ...passwordData,
-                  currentPassword: e.target.value,
-                })
-              }
-              className="w-full px-4 py-2 border text-gray-600  border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              onChange={updatePasswordField('currentPassword')}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-600 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               New Password
             </label>
             <input
               type="password"
               value={passwordData.newPassword}
-              onChange={(e) =>
-                setPasswordData({
-                  ...passwordData,
-                  newPassword: e.target.value,
-                })
-              }
-              className="w-full px-4 py-2 border text-gray-600 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              onChange={updatePasswordField('newPassword')}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-600 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               required
               minLength={6}
             />
-            <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+            <p className="mt-1 text-xs text-gray-500">Minimum 6 characters</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Confirm New Password
             </label>
             <input
               type="password"
               value={passwordData.confirmPassword}
-              onChange={(e) =>
-                setPasswordData({
-                  ...passwordData,
-                  confirmPassword: e.target.value,
-                })
-              }
-              className="w-full px-4 py-2 border text-gray-600 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              onChange={updatePasswordField('confirmPassword')}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-600 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
               required
               minLength={6}
             />
@@ -362,10 +401,10 @@ export default function ProfileSettings({ user, onUpdate }: Props) {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full md:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+            disabled={passwordLoading}
+            className="w-full rounded-lg bg-indigo-600 px-6 py-2 text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-400 md:w-auto"
           >
-            {loading ? 'Changing...' : 'Change Password'}
+            {passwordLoading ? 'Changing...' : 'Change Password'}
           </button>
         </form>
       </div>

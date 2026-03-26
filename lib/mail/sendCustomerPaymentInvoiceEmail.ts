@@ -1,6 +1,6 @@
 import Mail from 'nodemailer/lib/mailer';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { sendMail } from '@/lib/mail';
+import { sendMail } from '@/lib/maila';
 
 type Input = {
   reservation: {

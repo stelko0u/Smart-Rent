@@ -115,4 +115,24 @@ export class ReviewRepository {
 
     return Number(result?.count || 0);
   }
+
+  static async findUserReservationsForCar(userId: number, carId: number) {
+    return query(
+      `
+      SELECT
+        r.id,
+        r."userId",
+        r."carId",
+        r."startDate",
+        r."endDate",
+        r.status
+      FROM "Reservation" r
+      WHERE r."userId" = $1
+        AND r."carId" = $2
+        AND r.status IN ('CONFIRMED', 'COMPLETED', 'RETURNED')
+      ORDER BY r."startDate" DESC
+      `,
+      [userId, carId],
+    );
+  }
 }

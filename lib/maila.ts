@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 import fs from 'fs';
 import Mail from 'nodemailer/lib/mailer';
+import { getMailerTransporter } from './mail/mailer';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.SITE_URL;
@@ -20,23 +21,23 @@ interface MailPayload {
   attachments?: Mail.Attachment[];
 }
 
-export function createTransporter(provider: Provider) {
-  return nodemailer.createTransport({
-    host: 'smtp.abv.bg',
-    port: 465,
-    secure: true,
-    auth: {
-      user: process.env.ABV_USER,
-      pass: process.env.ABV_PASS,
-    },
-  });
-}
+// export function createTransporter(provider: Provider) {
+//   return nodemailer.createTransport({
+//     host: 'smtp.abv.bg',
+//     port: 465,
+//     secure: true,
+//     auth: {
+//       user: process.env.ABV_USER,
+//       pass: process.env.ABV_PASS,
+//     },
+//   });
+// }
 
 export async function sendMail(
   payload: MailPayload,
   provider: Provider = 'abv',
 ) {
-  const transporter = createTransporter(provider);
+  const transporter = getMailerTransporter();
 
   const defaultFrom =
     'Smart Rent <' + (process.env.EMAIL_FROM ?? process.env.ABV_USER) + '>';

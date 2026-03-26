@@ -1,13 +1,14 @@
 'use client';
+
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { log } from 'console';
 
-// Dynamically import the map component to avoid SSR issues
 const MapComponent = dynamic(() => import('./MapComponent'), {
   ssr: false,
   loading: () => (
-    <div style={{ height: 400, width: '100%' }}>Loading map...</div>
+    <div style={{ height: 400, width: '100%' }} className="p-4">
+      Loading map...
+    </div>
   ),
 });
 
@@ -16,20 +17,46 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
   const [editing, setEditing] = useState<any | null>(null);
   const [pos, setPos] = useState<[number, number] | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const companyColors: Record<number, string> = {
-    1: '#e11d48', // red
-    2: '#2563eb', // blue
-    3: '#16a34a', // green
+    1: '#e11d48',
+    2: '#2563eb',
+    3: '#16a34a',
   };
+
   async function load() {
-    const res = await fetch('/api/company/offices', {
-      credentials: 'include',
-      cache: 'no-store',
-    });
-    if (!res.ok) return;
-    const j = await res.json();
-    setOffices(Array.isArray(j.offices) ? j.offices : []);
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await fetch('/api/company/offices', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+
+      const text = await res.text();
+      let data: any = null;
+
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to load offices');
+      }
+
+      setOffices(Array.isArray(data?.offices) ? data.offices : []);
+    } catch (err: any) {
+      console.error('Failed to load offices:', err);
+      setError(err?.message || 'Failed to load offices');
+      setOffices([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -43,43 +70,93 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
 
   function startEdit(o: any) {
     setEditing(o);
-    setPos(o.latitude && o.longitude ? [o.latitude, o.longitude] : null);
+    setPos(
+      o?.latitude != null && o?.longitude != null
+        ? [o.latitude, o.longitude]
+        : null,
+    );
   }
 
   async function save() {
     if (!editing) return;
-    setSaving(true);
-    const payload: any = {
-      name: editing.name,
-      address: editing.address,
-      latitude: pos?.[0],
-      longitude: pos?.[1],
-      companyId,
-    };
-    if (editing.id) payload.id = editing.id;
-    const method = editing.id ? 'PATCH' : 'POST';
-    const res = await fetch('/api/company/offices', {
-      method,
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    setSaving(false);
-    if (res.ok) {
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      const payload: any = {
+        name: editing.name,
+        address: editing.address,
+        latitude: pos?.[0],
+        longitude: pos?.[1],
+        companyId,
+      };
+
+      if (editing.id) payload.id = editing.id;
+
+      const method = editing.id ? 'PATCH' : 'POST';
+
+      const res = await fetch('/api/company/offices', {
+        method,
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text();
+      let data: any = null;
+
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to save office');
+      }
+
       setEditing(null);
       await load();
+    } catch (err: any) {
+      console.error('Save office error:', err);
+      setError(err?.message || 'Failed to save office');
+    } finally {
+      setSaving(false);
     }
   }
 
   async function del(id: number) {
     if (!confirm('Delete office?')) return;
-    const res = await fetch('/api/company/offices', {
-      method: 'DELETE',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    });
-    if (res.ok) load();
+
+    try {
+      setError(null);
+
+      const res = await fetch('/api/company/offices', {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      const text = await res.text();
+      let data: any = null;
+
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to delete office');
+      }
+
+      await load();
+    } catch (err: any) {
+      console.error('Delete office error:', err);
+      setError(err?.message || 'Failed to delete office');
+    }
   }
 
   return (
@@ -91,65 +168,71 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
         </p>
       </div>
 
+      {error && (
+        <div className="mx-6 mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-3">
-        {/* Left panel */}
         <div className="lg:col-span-1">
-          <div className="sticky top-4 rounded-2xl bg-gray-50 p-4 border border-gray-100">
+          <div className="sticky top-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
             <button
               onClick={startCreate}
-              className="mb-4 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="mb-4 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
             >
               + Add Office
             </button>
 
             <div className="space-y-3">
-              {offices.length === 0 ? (
+              {loading ? (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500">
+                  Loading offices...
+                </div>
+              ) : offices.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500">
                   No offices yet. Add your first office.
                 </div>
               ) : (
-                offices.map((o) => {
-                  return (
-                    <div
-                      key={o.id}
-                      className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-base font-semibold text-gray-800">
-                            {o.name ?? `Office #${o.id}`}
-                          </div>
-                          <div className="mt-1 text-sm leading-5 text-gray-500">
-                            {o.address}
-                          </div>
+                offices.map((o) => (
+                  <div
+                    key={o.id}
+                    className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-base font-semibold text-gray-800">
+                          {o.name ?? `Office #${o.id}`}
                         </div>
-                        <div className="h-3 w-3 rounded-full bg-indigo-500 mt-1 shrink-0" />
+                        <div className="mt-1 text-sm leading-5 text-gray-500">
+                          {o.address}
+                        </div>
                       </div>
-
-                      <div className="mt-4 flex gap-2">
-                        <button
-                          onClick={() => startEdit(o)}
-                          className="flex-1 rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-200"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => del(o.id)}
-                          className="flex-1 rounded-lg bg-red-100 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-200"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <div className="mt-1 h-3 w-3 shrink-0 rounded-full bg-indigo-500" />
                     </div>
-                  );
-                })
+
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        onClick={() => startEdit(o)}
+                        className="flex-1 rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-200"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => del(o.id)}
+                        className="flex-1 rounded-lg bg-red-100 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-200"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </div>
         </div>
 
-        {/* Right panel */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="space-y-4 lg:col-span-2">
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="border-b border-gray-100 px-4 py-3">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
@@ -191,7 +274,7 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
                   </label>
                   <input
                     id="office-name"
-                    value={editing.name}
+                    value={editing.name ?? ''}
                     onChange={(e) =>
                       setEditing({ ...editing, name: e.target.value })
                     }
@@ -209,7 +292,7 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
                   </label>
                   <input
                     id="office-address"
-                    value={editing.address}
+                    value={editing.address ?? ''}
                     onChange={(e) =>
                       setEditing({ ...editing, address: e.target.value })
                     }
@@ -232,7 +315,7 @@ export default function CompanyOffices({ companyId }: { companyId: number }) {
                   </button>
                   <button
                     onClick={() => setEditing(null)}
-                    className="rounded-xl bg-white px-5 py-3 text-sm font-medium text-gray-700 border border-gray-200 transition hover:bg-gray-50"
+                    className="rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                   >
                     Cancel
                   </button>

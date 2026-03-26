@@ -5,21 +5,11 @@ import jwt, {
   TokenExpiredError,
 } from 'jsonwebtoken';
 import { UserRepository } from '@/lib/repository/UserRepository';
+import { getTokenFromRequest } from '@/lib/auth/getTokenFromRequest';
 
 export const runtime = 'nodejs';
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
-
-function getTokenFromRequest(req: Request) {
-  const auth = req.headers.get('authorization');
-  if (auth?.startsWith('Bearer ')) return auth.substring(7).trim();
-  const cookieHeader = req.headers.get('cookie') || '';
-  const match = cookieHeader.match(
-    new RegExp(`(^|;\\s*)${COOKIE_NAME}=([^;]+)`),
-  );
-  return match ? decodeURIComponent(match[2]) : null;
-}
 
 export async function GET(req: Request) {
   if (!JWT_SECRET) {

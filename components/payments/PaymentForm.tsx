@@ -1,142 +1,187 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useRouter } from 'next/navigation';
+import { createPaymentIntent } from '@/lib/api/paymentApi';
 
-export default function CheckoutForm({
-  reservationId,
-}: {
+type CheckoutFormProps = {
   reservationId: number;
-}) {
+};
+
+type PaymentIntentState = {
+  clientSecret: string | null;
+  amount: number | null;
+};
+
+export default function CheckoutForm({ reservationId }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const router = useRouter();
 
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [amount, setAmount] = useState<number | null>(null);
+  const [paymentIntent, setPaymentIntent] = useState<PaymentIntentState>({
+    clientSecret: null,
+    amount: null,
+  });
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!reservationId) return;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/payments/create-intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ reservationId }),
-        });
-
-        const data = await res.json();
-
-        if (res.ok && data.clientSecret) {
-          setClientSecret(data.clientSecret);
-          setAmount(data.amount);
-          console.log('💳 Payment intent loaded:', data);
-        } else {
-          setError(data.error || 'Failed to init payment');
-        }
-      } catch (err: any) {
-        setError(err.message);
-      }
+    if (!reservationId) {
       setLoading(false);
-    })();
-  }, [reservationId]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!stripe || !elements || !clientSecret) return;
-
-    setProcessing(true);
-
-    const card = elements.getElement(CardElement);
-    if (!card) {
-      setError('Card element not loaded');
-      setProcessing(false);
+      setError('Invalid reservation.');
       return;
     }
 
-    const result = await stripe.confirmCardPayment(clientSecret, {
-      payment_method: { card },
-    });
+    let isActive = true;
 
-    if (result.error) {
-      console.error('❌ Payment error:', result.error);
-      setError(result.error.message || 'Payment failed');
-      setProcessing(false);
-    } else if (result.paymentIntent?.status === 'succeeded') {
-      console.log('✅ Payment succeeded');
-      // ВАЖНО: Добавете payment_intent ID в URL-то
-      router.push(
-        `/payment/success?reservationId=${reservationId}&payment_intent=${result.paymentIntent.id}&redirect_status=succeeded`,
+    const loadPaymentIntent = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const data = await createPaymentIntent(reservationId);
+
+        if (!isActive) return;
+
+        setPaymentIntent({
+          clientSecret: data.clientSecret,
+          amount: data.amount,
+        });
+      } catch (err) {
+        if (!isActive) return;
+
+        const message =
+          err instanceof Error ? err.message : 'Failed to initialize payment';
+
+        setError(message);
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadPaymentIntent();
+
+    return () => {
+      isActive = false;
+    };
+  }, [reservationId]);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!stripe || !elements || !paymentIntent.clientSecret) {
+      setError('Payment form is not ready yet.');
+      return;
+    }
+
+    const card = elements.getElement(CardElement);
+
+    if (!card) {
+      setError('Card element not loaded.');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+
+      const result = await stripe.confirmCardPayment(
+        paymentIntent.clientSecret,
+        {
+          payment_method: { card },
+        },
       );
+
+      if (result.error) {
+        setError(result.error.message || 'Payment failed');
+        return;
+      }
+
+      if (result.paymentIntent?.status === 'succeeded') {
+        router.push(
+          `/payment/success?reservationId=${reservationId}&payment_intent=${result.paymentIntent.id}&redirect_status=succeeded`,
+        );
+        return;
+      }
+
+      setError('Payment was not completed.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Payment failed';
+
+      setError(message);
+    } finally {
+      setProcessing(false);
     }
   };
 
-  const cardOptions = {
-    hidePostalCode: true,
-    style: {
-      base: {
-        fontSize: '16px',
-        color: '#1f2937',
-        '::placeholder': {
-          color: '#9ca3af',
+  const cardOptions = useMemo(
+    () => ({
+      hidePostalCode: true,
+      style: {
+        base: {
+          fontSize: '16px',
+          color: '#1f2937',
+          '::placeholder': {
+            color: '#9ca3af',
+          },
+        },
+        invalid: {
+          color: '#ef4444',
         },
       },
-      invalid: {
-        color: '#ef4444',
-      },
-    },
-  };
+    }),
+    [],
+  );
+
+  const submitDisabled =
+    loading || processing || !stripe || !paymentIntent.clientSecret;
 
   if (loading) {
     return (
       <div className="flex justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-indigo-600" />
       </div>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {amount !== null && (
-        <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-700 font-medium">Total Amount:</span>
+      {paymentIntent.amount !== null && (
+        <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-gray-700">Total Amount:</span>
             <span className="text-2xl font-bold text-indigo-600">
-              €{amount}
+              €{paymentIntent.amount}
             </span>
           </div>
         </div>
       )}
 
-      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <label className="mb-2 block text-sm font-medium text-gray-700">
           Card Details
         </label>
         <CardElement options={cardOptions} />
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       )}
 
       <button
         type="submit"
-        disabled={!stripe || processing}
-        className="w-full px-6 py-4 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all"
+        disabled={submitDisabled}
+        className="w-full rounded-xl bg-indigo-600 px-6 py-4 font-semibold text-white transition-all hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-400"
       >
         {processing ? (
           <span className="flex items-center justify-center gap-2">
-            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+            <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
                 cx="12"
@@ -155,11 +200,11 @@ export default function CheckoutForm({
             Processing...
           </span>
         ) : (
-          `Pay €${amount || '0.00'}`
+          `Pay €${paymentIntent.amount ?? '0.00'}`
         )}
       </button>
 
-      <p className="text-xs text-center text-gray-500">
+      <p className="text-center text-xs text-gray-500">
         Your payment is secured by Stripe. Test card: 4242 4242 4242 4242
       </p>
     </form>

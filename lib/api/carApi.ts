@@ -23,3 +23,18 @@ export async function fetchOfficeByCarId(carId: number) {
     throw error;
   }
 }
+
+export async function fetchCarById(carId: number | string) {
+  const res = await fetch(`/api/cars/${carId}`, {
+    credentials: 'include',
+    cache: 'no-store',
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data?.error || 'Failed to load car details');
+  }
+
+  return data.car;
+}

@@ -5,17 +5,16 @@ export async function GET(req: NextRequest) {
   try {
     const secret = process.env.CRON_SECRET;
 
-    // if (secret) {
-    //   const authHeader = req.headers.get('authorization');
-    //   if (authHeader !== `Bearer ${secret}`) {
-    //     return NextResponse.json(
-    //       { ok: false, error: 'Unauthorized' },
-    //       { status: 401 },
-    //     );
-    //   }
-    // }
-    console.log('CRON_SECRET=', process.env.CRON_SECRET);
-    console.log('AUTH_HEADER=', req.headers.get('authorization'));
+    if (secret) {
+      const authHeader = req.headers.get('authorization');
+      if (authHeader !== `Bearer ${secret}`) {
+        return NextResponse.json(
+          { ok: false, error: 'Unauthorized' },
+          { status: 401 },
+        );
+      }
+    }
+
     const result = await processCompletedReservationsForReviewEmails();
 
     return NextResponse.json({

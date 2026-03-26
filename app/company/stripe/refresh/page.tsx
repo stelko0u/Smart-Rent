@@ -1,32 +1,38 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { getCompanyStripeOnboardingLink } from '@/lib/api/companyApi';
 
 export default function CompanyStripeRefreshPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const load = async () => {
+    let mounted = true;
+
+    async function load() {
       try {
-        const res = await fetch('/api/company/stripe/onboarding-link', {
-          method: 'GET',
-          credentials: 'include',
-          cache: 'no-store',
-        });
+        const url = await getCompanyStripeOnboardingLink();
 
-        const data = await res.json();
+        if (!mounted) return;
 
-        if (!res.ok || !data?.ok || !data?.url) {
-          throw new Error(data?.error || 'Failed to generate onboarding link');
-        }
+        window.location.href = url;
+      } catch (err) {
+        if (!mounted) return;
 
-        window.location.href = data.url;
-      } catch (err: any) {
-        setError(err?.message || 'Failed to redirect to Stripe onboarding');
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to redirect to Stripe onboarding',
+        );
       }
-    };
+    }
 
     load();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (
@@ -49,12 +55,13 @@ export default function CompanyStripeRefreshPage() {
               Stripe redirect failed
             </h1>
             <p className="text-gray-600 mb-6">{error}</p>
-            <a
+
+            <Link
               href="/company"
               className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Back to company panel
-            </a>
+            </Link>
           </>
         )}
       </div>

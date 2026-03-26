@@ -1,6 +1,5 @@
 import React from 'react';
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
 import AdminShell from '../../components/admin/AdminShell';
 import { getAuthUser } from '../../lib/auth';
 

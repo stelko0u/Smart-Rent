@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import Mail from 'nodemailer/lib/mailer';
 
-import { sendMail } from '@/lib/mail';
+import { sendMail } from '@/lib/maila';
 import { createReviewEmailToken } from '@/lib/services/reviews/reviewEmailToken';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.SITE_URL;

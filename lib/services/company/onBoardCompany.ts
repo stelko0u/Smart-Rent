@@ -6,7 +6,7 @@ import {
   createCompanyStripeAccount,
   rollbackStripeAccount,
 } from '@/lib/services/stripe/companyStripe';
-import { sendCompanyCredentialsEmail } from '@/lib/services/mail/sendCompanyCredentialsEmail';
+import { sendCompanyCredentialsEmail } from '@/lib/mail/sendCompanyCredentialsEmail';
 
 type OnboardCompanyInput = {
   name: string;

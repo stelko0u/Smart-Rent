@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { AuthError, requireAuthUserFromRequest } from '@/lib/auth';
+import { requireCompanyUser } from '@/lib/auth/requireCompany';
 import { CompanyRepository } from '@/lib/repository/CompanyRepository';
 import { PaymentsRepository } from '@/lib/repository/PaymentsRepository';
 import {
@@ -7,23 +7,9 @@ import {
   summarizePayments,
 } from '@/lib/services/stripe/companyFinance';
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const user = await requireAuthUserFromRequest(req);
-
-    if (user.role !== 'COMPANY' && user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { ok: false, error: 'Forbidden - Company access required' },
-        { status: 403 },
-      );
-    }
-
-    if (!user.companyId) {
-      return NextResponse.json(
-        { ok: false, error: 'Company not found' },
-        { status: 404 },
-      );
-    }
+    const user = await requireCompanyUser();
 
     const company = await CompanyRepository.findById(user.companyId);
     if (!company) {
@@ -88,14 +74,24 @@ export async function GET(req: Request) {
       });
     }
   } catch (err) {
-    if (err instanceof AuthError) {
-      return NextResponse.json(
-        { ok: false, error: err.message },
-        { status: err.status },
-      );
+    console.error('GET /api/company/payments error:', err);
+
+    if (err instanceof Error) {
+      if (err.message === 'FORBIDDEN') {
+        return NextResponse.json(
+          { ok: false, error: 'Forbidden - Company access required' },
+          { status: 403 },
+        );
+      }
+
+      if (err.message === 'MISSING_COMPANY_CONTEXT') {
+        return NextResponse.json(
+          { ok: false, error: 'Company not found' },
+          { status: 404 },
+        );
+      }
     }
 
-    console.error('GET /api/company/payments error:', err);
     return NextResponse.json(
       {
         ok: false,

@@ -6,7 +6,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await context.params; // ✅ await тук
+    const { id } = await context.params;
     const carId = Number(id);
 
     if (!carId || isNaN(carId)) {

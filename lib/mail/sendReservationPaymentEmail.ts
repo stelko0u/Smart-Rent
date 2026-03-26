@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 import Mail from 'nodemailer/lib/mailer';
 
-import { sendMail } from '@/lib/mail';
+import { sendMail } from '@/lib/maila';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.SITE_URL;

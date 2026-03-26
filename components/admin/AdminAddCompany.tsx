@@ -35,7 +35,6 @@ export default function AdminAddCompany() {
       setMaintenancePercent(0);
       setPassword('');
 
-      // Notify other components
       window.dispatchEvent(new CustomEvent('company:created'));
     } catch (err: any) {
       setError(err.message || 'Create failed');

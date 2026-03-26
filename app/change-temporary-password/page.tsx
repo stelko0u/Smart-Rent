@@ -1,12 +1,15 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { completeOnboarding } from '@/lib/api/authApi';
 
 export default function ChangeTemporaryPasswordPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const userId = searchParams.get('userId');
+
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,31 +22,41 @@ export default function ChangeTemporaryPasswordPage() {
     }
   }, [userId]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (!userId) {
+      setError('Invalid or missing user ID.');
+      return;
+    }
 
     if (password !== confirm) {
       setError('Passwords do not match.');
       return;
     }
 
-    setLoading(true);
-    try {
-      const res = await fetch('/api/auth/complete-onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, password }),
-      });
-      const data = await res.json();
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
 
-      if (!res.ok) throw new Error(data.error || 'Error changing password.');
+    setLoading(true);
+
+    try {
+      await completeOnboarding({
+        userId,
+        password,
+      });
 
       setSuccess('Password has been successfully changed!');
-      setTimeout(() => router.push('/signin'), 2000);
-    } catch (err: any) {
-      setError(err.message);
+
+      setTimeout(() => {
+        router.push('/signin');
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error changing password.');
     } finally {
       setLoading(false);
     }
@@ -106,7 +119,7 @@ export default function ChangeTemporaryPasswordPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:opacity-60"
         >
           {loading ? 'Submitting...' : 'Save New Password'}
         </button>

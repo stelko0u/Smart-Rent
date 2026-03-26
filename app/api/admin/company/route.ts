@@ -35,20 +35,22 @@ export async function POST(req: Request) {
     }
 
     const hashed = await bcrypt.hash(password, 10);
+
     const user = await UserRepository.create({
       email,
       password: hashed,
-      name: name,
+      name,
       role: 'COMPANY',
       emailVerified: false,
+      mustChangePassword: false,
     });
 
     try {
       await CompanyRepository.create({
         ownerId: user.id,
         name,
-        maintenancePercent: maintenance,
         email,
+        maintenancePercent: maintenance,
       });
     } catch (e) {
       try {
@@ -59,7 +61,9 @@ export async function POST(req: Request) {
           delErr,
         );
       }
+
       console.warn('Create company failed:', e);
+
       return NextResponse.json(
         { error: 'Failed creating company. Check uniqueness and schema.' },
         { status: 500 },

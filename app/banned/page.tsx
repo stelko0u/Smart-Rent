@@ -2,50 +2,71 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getCurrentUser, signOutUser } from '@/lib/api/authApi';
+
+type BanInfo = {
+  reason?: string | null;
+  bannedAt?: string | null;
+} | null;
 
 export default function BannedPage() {
   const router = useRouter();
-  const [banInfo, setBanInfo] = useState<{
-    reason?: string;
-    bannedAt?: string;
-  } | null>(null);
+  const [banInfo, setBanInfo] = useState<BanInfo>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function checkBanStatus() {
+    let mounted = true;
+
+    async function loadBanStatus() {
       try {
-        const res = await fetch('/api/auth/me', {
-          credentials: 'include',
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user?.banned) {
-            setBanInfo({
-              reason: data.user.banReason,
-              bannedAt: data.user.bannedAt,
-            });
-          } else {
-            // Ако не е забранен, пренасочване къмHome
-            router.push('/');
-          }
+        const data = await getCurrentUser();
+
+        if (!mounted) return;
+
+        if (data.user?.banned) {
+          setBanInfo({
+            reason: data.user.banReason,
+            bannedAt: data.user.bannedAt,
+          });
+        } else {
+          router.replace('/');
         }
       } catch (err) {
         console.error('Failed to check ban status:', err);
+        if (mounted) {
+          router.replace('/');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
-    checkBanStatus();
+    loadBanStatus();
+
+    return () => {
+      mounted = false;
+    };
   }, [router]);
 
   async function handleSignOut() {
     try {
-      await fetch('/api/auth/signout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      router.push('/');
+      await signOutUser();
+      router.replace('/');
     } catch (err) {
       console.error('Sign out failed:', err);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -67,9 +88,11 @@ export default function BannedPage() {
               />
             </svg>
           </div>
+
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
             Account Banned
           </h1>
+
           <p className="text-gray-600 mb-6">
             Your account has been banned and you cannot perform any actions.
           </p>
@@ -91,6 +114,7 @@ export default function BannedPage() {
             <p className="text-sm text-gray-600">
               If you believe this is a mistake, please contact support.
             </p>
+
             <button
               onClick={handleSignOut}
               className="w-full px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900"

@@ -1,5 +1,5 @@
 import { query } from '@/lib/db';
-import { sendReviewRequestEmail } from '@/lib/services/mail/sendReviewRequestEmail';
+import { sendReviewRequestEmail } from '@/lib/mail/sendReviewRequestEmail';
 
 type ProcessOptions = {
   userId?: number;

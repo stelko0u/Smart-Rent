@@ -1,4 +1,4 @@
-import { stripe } from '@/lib/stripe';
+import { stripe } from '@/lib/services/stripe/stripe';
 export interface User {
   id: number;
   email: string;
@@ -31,8 +31,8 @@ export interface Company {
   ownerId: number;
   createdAt: Date;
   updatedAt?: Date;
-  office: Office;
-  stripeAccountId: string;
+  office?: Office;
+  stripeAccountId?: string;
   stripeBillingCustomerId?: string | null;
 }
 
@@ -126,8 +126,8 @@ export interface Office {
   companyId: number;
   name?: string;
   address?: string;
-  latitude?: number;
-  longitude?: number;
+  latitude: number;
+  longitude: number;
   createdAt: Date;
   updatedAt?: Date;
 }

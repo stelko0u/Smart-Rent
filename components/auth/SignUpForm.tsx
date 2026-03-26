@@ -2,182 +2,213 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { signUpUser } from '@/lib/api/userApi';
+
+type MessageType = 'success' | 'error' | null;
+
+type FormValues = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phone: string;
+  address: string;
+  city: string;
+  country: string;
+  postalCode: string;
+  dateOfBirth: string;
+};
+
+type TouchedFields = Record<keyof FormValues, boolean>;
+
+const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{10,}$/;
+const PHONE_REGEX = /^[+]?[\d\s\-()]{10,}$/;
+const POSTAL_CODE_REGEX = /^[A-Za-z0-9\s\-]{3,10}$/;
+
+const INITIAL_VALUES: FormValues = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  password: '',
+  phone: '',
+  address: '',
+  city: '',
+  country: '',
+  postalCode: '',
+  dateOfBirth: '',
+};
+
+const INITIAL_TOUCHED: TouchedFields = {
+  firstName: false,
+  lastName: false,
+  email: false,
+  password: false,
+  phone: false,
+  address: false,
+  city: false,
+  country: false,
+  postalCode: false,
+  dateOfBirth: false,
+};
+
+function calculateAge(dob: string): number {
+  if (!dob) return 0;
+
+  const birthDate = new Date(dob);
+  if (Number.isNaN(birthDate.getTime())) return 0;
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birthDate.getDate())
+  ) {
+    age--;
+  }
+
+  return age;
+}
+
+function borderClass(value: string, touched: boolean, valid: boolean): string {
+  if (!value && !touched) return 'border-black dark:border-black';
+  if (!touched) return 'border-black dark:border-black';
+  return valid ? 'border-green-500' : 'border-red-500';
+}
+
+function focusRingClass(touched: boolean, valid: boolean): string {
+  if (!touched) {
+    return 'focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-700';
+  }
+
+  return valid
+    ? 'focus:ring-2 focus:ring-green-300 dark:focus:ring-green-700'
+    : 'focus:ring-2 focus:ring-red-300 dark:focus:ring-red-700';
+}
 
 export default function SignUpForm() {
   const router = useRouter();
 
-  // Form field states
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
-  const [country, setCountry] = useState('');
-  const [postalCode, setPostalCode] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
+  const [touched, setTouched] = useState<TouchedFields>(INITIAL_TOUCHED);
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [messageType, setMessageType] = useState<'success' | 'error' | null>(
-    null,
-  );
+  const [messageType, setMessageType] = useState<MessageType>(null);
 
-  // Touched states
-  const [firstNameTouched, setFirstNameTouched] = useState(false);
-  const [lastNameTouched, setLastNameTouched] = useState(false);
-  const [emailTouched, setEmailTouched] = useState(false);
-  const [passwordTouched, setPasswordTouched] = useState(false);
-  const [phoneTouched, setPhoneTouched] = useState(false);
-  const [addressTouched, setAddressTouched] = useState(false);
-  const [cityTouched, setCityTouched] = useState(false);
-  const [countryTouched, setCountryTouched] = useState(false);
-  const [postalCodeTouched, setPostalCodeTouched] = useState(false);
-  const [dateOfBirthTouched, setDateOfBirthTouched] = useState(false);
+  const validation = useMemo(() => {
+    const firstNameValid = values.firstName.trim().length >= 2;
+    const lastNameValid = values.lastName.trim().length >= 2;
+    const emailValid = EMAIL_REGEX.test(values.email.trim());
+    const passwordValid = PASSWORD_REGEX.test(values.password);
+    const phoneValid = PHONE_REGEX.test(values.phone.trim());
+    const addressValid = values.address.trim().length >= 5;
+    const cityValid = values.city.trim().length >= 2;
+    const countryValid = values.country.trim().length >= 2;
+    const postalCodeValid = POSTAL_CODE_REGEX.test(values.postalCode.trim());
 
-  // Validation regexes
-  const emailRegex = /^\S+@\S+\.\S+$/;
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{10,}$/;
-  const phoneRegex = /^[+]?[\d\s\-()]{10,}$/;
-  const postalCodeRegex = /^[A-Za-z0-9\s\-]{3,10}$/;
+    const dateOfBirthValid =
+      values.dateOfBirth.length > 0 &&
+      !Number.isNaN(new Date(values.dateOfBirth).getTime()) &&
+      new Date(values.dateOfBirth) < new Date() &&
+      calculateAge(values.dateOfBirth) >= 18;
 
-  const calculateAge = (dob: string): number => {
-    if (!dob) return 0;
+    return {
+      firstName: firstNameValid,
+      lastName: lastNameValid,
+      email: emailValid,
+      password: passwordValid,
+      phone: phoneValid,
+      address: addressValid,
+      city: cityValid,
+      country: countryValid,
+      postalCode: postalCodeValid,
+      dateOfBirth: dateOfBirthValid,
+    };
+  }, [values]);
 
-    const birthDate = new Date(dob);
-    if (Number.isNaN(birthDate.getTime())) return 0;
+  const formInvalid = Object.values(validation).some((isValid) => !isValid);
 
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
+  const maxBirthDate = new Date().toISOString().split('T')[0];
 
-    if (
-      monthDiff < 0 ||
-      (monthDiff === 0 && today.getDate() < birthDate.getDate())
-    ) {
-      age--;
-    }
-
-    return age;
+  const passwordChecks = {
+    minLength: values.password.length >= 10,
+    lowercase: /[a-z]/.test(values.password),
+    uppercase: /[A-Z]/.test(values.password),
+    number: /\d/.test(values.password),
+    special: /[^\w\s]/.test(values.password),
   };
 
-  // Validation booleans
-  const firstNameValid = firstName.trim().length >= 2;
-  const lastNameValid = lastName.trim().length >= 2;
-  const emailValid = emailRegex.test(email.trim());
-  const passwordValid = passwordRegex.test(password);
-  const phoneValid = phoneRegex.test(phone.trim());
-  const addressValid = address.trim().length >= 5;
-  const cityValid = city.trim().length >= 2;
-  const countryValid = country.trim().length >= 2;
-  const postalCodeValid = postalCodeRegex.test(postalCode.trim());
-  const dateOfBirthValid: boolean =
-    dateOfBirth.length > 0 &&
-    !Number.isNaN(new Date(dateOfBirth).getTime()) &&
-    new Date(dateOfBirth) < new Date() &&
-    calculateAge(dateOfBirth) >= 18;
+  const markTouched = (field: keyof FormValues) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
 
-  function borderClass(value: string, touched: boolean, valid: boolean) {
-    if (!value && !touched) return 'border-black dark:border-black';
-    if (!touched) return 'border-black dark:border-black';
-    return valid ? 'border-green-500' : 'border-red-500';
-  }
+  const setAllTouched = () => {
+    setTouched({
+      firstName: true,
+      lastName: true,
+      email: true,
+      password: true,
+      phone: true,
+      address: true,
+      city: true,
+      country: true,
+      postalCode: true,
+      dateOfBirth: true,
+    });
+  };
 
-  function focusRingClass(touched: boolean, valid: boolean) {
-    if (!touched) {
-      return 'focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-700';
-    }
+  const handleChange =
+    (field: keyof FormValues) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
 
-    return valid
-      ? 'focus:ring-2 focus:ring-green-300 dark:focus:ring-green-700'
-      : 'focus:ring-2 focus:ring-red-300 dark:focus:ring-red-700';
-  }
+      setValues((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
 
-  function resetForm() {
-    setFirstName('');
-    setLastName('');
-    setEmail('');
-    setPassword('');
-    setPhone('');
-    setAddress('');
-    setCity('');
-    setCountry('');
-    setPostalCode('');
-    setDateOfBirth('');
+      if (message) {
+        setMessage(null);
+        setMessageType(null);
+      }
+    };
 
-    setFirstNameTouched(false);
-    setLastNameTouched(false);
-    setEmailTouched(false);
-    setPasswordTouched(false);
-    setPhoneTouched(false);
-    setAddressTouched(false);
-    setCityTouched(false);
-    setCountryTouched(false);
-    setPostalCodeTouched(false);
-    setDateOfBirthTouched(false);
-  }
+  const resetForm = () => {
+    setValues(INITIAL_VALUES);
+    setTouched(INITIAL_TOUCHED);
+  };
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     setMessage(null);
     setMessageType(null);
+    setAllTouched();
 
-    // Set all fields as touched
-    setFirstNameTouched(true);
-    setLastNameTouched(true);
-    setEmailTouched(true);
-    setPasswordTouched(true);
-    setPhoneTouched(true);
-    setAddressTouched(true);
-    setCityTouched(true);
-    setCountryTouched(true);
-    setPostalCodeTouched(true);
-    setDateOfBirthTouched(true);
-
-    if (
-      !firstNameValid ||
-      !lastNameValid ||
-      !emailValid ||
-      !passwordValid ||
-      !phoneValid ||
-      !addressValid ||
-      !cityValid ||
-      !countryValid ||
-      !postalCodeValid ||
-      !dateOfBirthValid
-    ) {
+    if (formInvalid) {
       setMessage('Please fix the highlighted fields.');
       setMessageType('error');
       return;
     }
 
-    setLoading(true);
-
     try {
-      const res = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          email: email.trim(),
-          password,
-          phone: phone.trim(),
-          address: address.trim(),
-          city: city.trim(),
-          country: country.trim(),
-          postalCode: postalCode.trim(),
-          dateOfBirth,
-        }),
+      setLoading(true);
+
+      await signUpUser({
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim(),
+        email: values.email.trim(),
+        password: values.password,
+        phone: values.phone.trim(),
+        address: values.address.trim(),
+        city: values.city.trim(),
+        country: values.country.trim(),
+        postalCode: values.postalCode.trim(),
+        dateOfBirth: values.dateOfBirth,
       });
-
-      const data: { message?: string; error?: string } = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || data.error || 'Registration failed');
-      }
 
       setMessage('Registration successful!');
       setMessageType('success');
@@ -193,19 +224,7 @@ export default function SignUpForm() {
     } finally {
       setLoading(false);
     }
-  }
-
-  const formInvalid =
-    !firstNameValid ||
-    !lastNameValid ||
-    !emailValid ||
-    !passwordValid ||
-    !phoneValid ||
-    !addressValid ||
-    !cityValid ||
-    !countryValid ||
-    !postalCodeValid ||
-    !dateOfBirthValid;
+  };
 
   return (
     <form
@@ -229,19 +248,23 @@ export default function SignUpForm() {
             First Name
           </label>
           <input
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            onBlur={() => setFirstNameTouched(true)}
+            value={values.firstName}
+            onChange={handleChange('firstName')}
+            onBlur={() => markTouched('firstName')}
             type="text"
             required
-            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
-              firstNameTouched,
-              firstNameValid,
-            )} ${borderClass(firstName, firstNameTouched, firstNameValid)}`}
             autoComplete="given-name"
-            aria-invalid={firstNameTouched && !firstNameValid}
+            aria-invalid={touched.firstName && !validation.firstName}
+            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
+              touched.firstName,
+              validation.firstName,
+            )} ${borderClass(
+              values.firstName,
+              touched.firstName,
+              validation.firstName,
+            )}`}
           />
-          {firstNameTouched && !firstNameValid && (
+          {touched.firstName && !validation.firstName && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">
               First name must be at least 2 characters.
             </p>
@@ -253,19 +276,23 @@ export default function SignUpForm() {
             Last Name
           </label>
           <input
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            onBlur={() => setLastNameTouched(true)}
+            value={values.lastName}
+            onChange={handleChange('lastName')}
+            onBlur={() => markTouched('lastName')}
             type="text"
             required
-            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
-              lastNameTouched,
-              lastNameValid,
-            )} ${borderClass(lastName, lastNameTouched, lastNameValid)}`}
             autoComplete="family-name"
-            aria-invalid={lastNameTouched && !lastNameValid}
+            aria-invalid={touched.lastName && !validation.lastName}
+            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
+              touched.lastName,
+              validation.lastName,
+            )} ${borderClass(
+              values.lastName,
+              touched.lastName,
+              validation.lastName,
+            )}`}
           />
-          {lastNameTouched && !lastNameValid && (
+          {touched.lastName && !validation.lastName && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">
               Last name must be at least 2 characters.
             </p>
@@ -277,19 +304,19 @@ export default function SignUpForm() {
             Email
           </label>
           <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onBlur={() => setEmailTouched(true)}
+            value={values.email}
+            onChange={handleChange('email')}
+            onBlur={() => markTouched('email')}
             type="email"
             required
-            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
-              emailTouched,
-              emailValid,
-            )} ${borderClass(email, emailTouched, emailValid)}`}
             autoComplete="email"
-            aria-invalid={emailTouched && !emailValid}
+            aria-invalid={touched.email && !validation.email}
+            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
+              touched.email,
+              validation.email,
+            )} ${borderClass(values.email, touched.email, validation.email)}`}
           />
-          {emailTouched && !emailValid && (
+          {touched.email && !validation.email && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">
               Enter a valid email address.
             </p>
@@ -301,20 +328,20 @@ export default function SignUpForm() {
             Phone Number
           </label>
           <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            onBlur={() => setPhoneTouched(true)}
+            value={values.phone}
+            onChange={handleChange('phone')}
+            onBlur={() => markTouched('phone')}
             type="tel"
             required
-            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
-              phoneTouched,
-              phoneValid,
-            )} ${borderClass(phone, phoneTouched, phoneValid)}`}
             autoComplete="tel"
-            aria-invalid={phoneTouched && !phoneValid}
+            aria-invalid={touched.phone && !validation.phone}
             placeholder="+1234567890"
+            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
+              touched.phone,
+              validation.phone,
+            )} ${borderClass(values.phone, touched.phone, validation.phone)}`}
           />
-          {phoneTouched && !phoneValid && (
+          {touched.phone && !validation.phone && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">
               Enter a valid phone number (min 10 digits).
             </p>
@@ -326,19 +353,23 @@ export default function SignUpForm() {
             Address
           </label>
           <input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            onBlur={() => setAddressTouched(true)}
+            value={values.address}
+            onChange={handleChange('address')}
+            onBlur={() => markTouched('address')}
             type="text"
             required
-            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
-              addressTouched,
-              addressValid,
-            )} ${borderClass(address, addressTouched, addressValid)}`}
             autoComplete="street-address"
-            aria-invalid={addressTouched && !addressValid}
+            aria-invalid={touched.address && !validation.address}
+            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
+              touched.address,
+              validation.address,
+            )} ${borderClass(
+              values.address,
+              touched.address,
+              validation.address,
+            )}`}
           />
-          {addressTouched && !addressValid && (
+          {touched.address && !validation.address && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">
               Address must be at least 5 characters.
             </p>
@@ -350,19 +381,19 @@ export default function SignUpForm() {
             City
           </label>
           <input
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            onBlur={() => setCityTouched(true)}
+            value={values.city}
+            onChange={handleChange('city')}
+            onBlur={() => markTouched('city')}
             type="text"
             required
-            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
-              cityTouched,
-              cityValid,
-            )} ${borderClass(city, cityTouched, cityValid)}`}
             autoComplete="address-level2"
-            aria-invalid={cityTouched && !cityValid}
+            aria-invalid={touched.city && !validation.city}
+            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
+              touched.city,
+              validation.city,
+            )} ${borderClass(values.city, touched.city, validation.city)}`}
           />
-          {cityTouched && !cityValid && (
+          {touched.city && !validation.city && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">
               City must be at least 2 characters.
             </p>
@@ -374,19 +405,23 @@ export default function SignUpForm() {
             Country
           </label>
           <input
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            onBlur={() => setCountryTouched(true)}
+            value={values.country}
+            onChange={handleChange('country')}
+            onBlur={() => markTouched('country')}
             type="text"
             required
-            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
-              countryTouched,
-              countryValid,
-            )} ${borderClass(country, countryTouched, countryValid)}`}
             autoComplete="country-name"
-            aria-invalid={countryTouched && !countryValid}
+            aria-invalid={touched.country && !validation.country}
+            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
+              touched.country,
+              validation.country,
+            )} ${borderClass(
+              values.country,
+              touched.country,
+              validation.country,
+            )}`}
           />
-          {countryTouched && !countryValid && (
+          {touched.country && !validation.country && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">
               Country must be at least 2 characters.
             </p>
@@ -398,19 +433,23 @@ export default function SignUpForm() {
             Postal Code
           </label>
           <input
-            value={postalCode}
-            onChange={(e) => setPostalCode(e.target.value)}
-            onBlur={() => setPostalCodeTouched(true)}
+            value={values.postalCode}
+            onChange={handleChange('postalCode')}
+            onBlur={() => markTouched('postalCode')}
             type="text"
             required
-            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
-              postalCodeTouched,
-              postalCodeValid,
-            )} ${borderClass(postalCode, postalCodeTouched, postalCodeValid)}`}
             autoComplete="postal-code"
-            aria-invalid={postalCodeTouched && !postalCodeValid}
+            aria-invalid={touched.postalCode && !validation.postalCode}
+            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
+              touched.postalCode,
+              validation.postalCode,
+            )} ${borderClass(
+              values.postalCode,
+              touched.postalCode,
+              validation.postalCode,
+            )}`}
           />
-          {postalCodeTouched && !postalCodeValid && (
+          {touched.postalCode && !validation.postalCode && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">
               Enter a valid postal code (3-10 characters).
             </p>
@@ -423,20 +462,24 @@ export default function SignUpForm() {
           Date of Birth
         </label>
         <input
-          value={dateOfBirth}
-          onChange={(e) => setDateOfBirth(e.target.value)}
-          onBlur={() => setDateOfBirthTouched(true)}
+          value={values.dateOfBirth}
+          onChange={handleChange('dateOfBirth')}
+          onBlur={() => markTouched('dateOfBirth')}
           type="date"
           required
-          max={new Date().toISOString().split('T')[0]}
-          className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
-            dateOfBirthTouched,
-            dateOfBirthValid,
-          )} ${borderClass(dateOfBirth, dateOfBirthTouched, dateOfBirthValid)}`}
+          max={maxBirthDate}
           autoComplete="bday"
-          aria-invalid={dateOfBirthTouched && !dateOfBirthValid}
+          aria-invalid={touched.dateOfBirth && !validation.dateOfBirth}
+          className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
+            touched.dateOfBirth,
+            validation.dateOfBirth,
+          )} ${borderClass(
+            values.dateOfBirth,
+            touched.dateOfBirth,
+            validation.dateOfBirth,
+          )}`}
         />
-        {dateOfBirthTouched && !dateOfBirthValid && (
+        {touched.dateOfBirth && !validation.dateOfBirth && (
           <p className="mt-1 text-xs text-red-600 dark:text-red-400">
             You must be at least 18 years old.
           </p>
@@ -448,29 +491,33 @@ export default function SignUpForm() {
           Password
         </label>
         <input
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onBlur={() => setPasswordTouched(true)}
+          value={values.password}
+          onChange={handleChange('password')}
+          onBlur={() => markTouched('password')}
           type="password"
           required
           minLength={10}
-          className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
-            passwordTouched,
-            passwordValid,
-          )} ${borderClass(password, passwordTouched, passwordValid)}`}
           autoComplete="new-password"
-          aria-invalid={passwordTouched && !passwordValid}
+          aria-invalid={touched.password && !validation.password}
+          className={`mt-1 w-full rounded-md border bg-white px-3 py-2 text-slate-900 focus:outline-none dark:bg-slate-900 dark:text-slate-100 ${focusRingClass(
+            touched.password,
+            validation.password,
+          )} ${borderClass(
+            values.password,
+            touched.password,
+            validation.password,
+          )}`}
         />
 
         <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-5">
-          <CheckItem label="10+ chars" ok={password.length >= 10} />
-          <CheckItem label="Lowercase" ok={/[a-z]/.test(password)} />
-          <CheckItem label="Uppercase" ok={/[A-Z]/.test(password)} />
-          <CheckItem label="Number" ok={/\d/.test(password)} />
-          <CheckItem label="Special" ok={/[^\w\s]/.test(password)} />
+          <CheckItem label="10+ chars" ok={passwordChecks.minLength} />
+          <CheckItem label="Lowercase" ok={passwordChecks.lowercase} />
+          <CheckItem label="Uppercase" ok={passwordChecks.uppercase} />
+          <CheckItem label="Number" ok={passwordChecks.number} />
+          <CheckItem label="Special" ok={passwordChecks.special} />
         </div>
 
-        {passwordTouched && !passwordValid && (
+        {touched.password && !validation.password && (
           <p className="mt-1 text-xs text-red-600 dark:text-red-400">
             Password does not meet the required complexity.
           </p>

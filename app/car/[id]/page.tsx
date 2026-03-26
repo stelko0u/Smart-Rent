@@ -1,17 +1,26 @@
 'use client';
+
 import dynamic from 'next/dynamic';
 import React, { useEffect, useState } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
+
 import ImageSlider from '../../../components/vehicles/ImageSlider';
-import { Car as CarType } from '../../../types/types';
+import ReviewsList from '../../../components/vehicles/ReviewsList';
+
 import Engine from '../../../components/icons/Engine';
 import GasPump from '../../../components/icons/GasPump';
 import Transmission from '../../../components/icons/Transmission';
 import Car from '../../../components/icons/Car';
 import Cube from '../../../components/icons/Cube';
-import ReviewsList from '../../../components/vehicles/ReviewsList';
+
+import { Car as CarType } from '../../../types/types';
 import { getLoggedInUser } from '@/lib/api/userApi';
-import { fetchOfficeByCarId } from '@/lib/api/carApi';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { fetchCarById, fetchOfficeByCarId } from '@/lib/api/carApi';
+import {
+  fetchReviewsByCarId,
+  checkReviewEligibility,
+  submitReview,
+} from '@/lib/api/reviewApi';
 
 function LocationPinIcon({ className = 'w-6 h-6 text-gray-500' }) {
   return (
@@ -40,14 +49,15 @@ function LocationPinIcon({ className = 'w-6 h-6 text-gray-500' }) {
 export default function CarDetailPage() {
   const CarLocationMap = dynamic(
     () => import('@/components/vehicles/CarLocationMap'),
-    {
-      ssr: false,
-    },
+    { ssr: false },
   );
 
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
+
   const carId = params?.id as string;
+  const shouldOpenReviewForm = searchParams.get('review') === '1';
 
   const [car, setCar] = useState<CarType | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -61,103 +71,95 @@ export default function CarDetailPage() {
   const [user, setUser] = useState<any | null>(null);
   const [office, setOffice] = useState<any | null>(null);
 
-  const searchParams = useSearchParams();
-  const shouldOpenReviewForm = searchParams.get('review') === '1';
-
   useEffect(() => {
-    async function fetchUser() {
-      const loggedInUser = await getLoggedInUser();
-      setUser(loggedInUser);
+    async function loadUser() {
+      try {
+        const loggedInUser = await getLoggedInUser();
+        setUser(loggedInUser);
+      } catch (err) {
+        console.error('Failed to load user:', err);
+        setUser(null);
+      }
     }
 
-    fetchUser();
+    loadUser();
   }, []);
 
   useEffect(() => {
     if (!carId) return;
 
-    async function loadCar() {
-      try {
-        const res = await fetch(`/api/cars/${carId}`);
-        if (!res.ok) {
-          throw new Error('Failed to load car details');
-        }
-        const data = await res.json();
-        setCar(data.car);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load car');
-      } finally {
-        setLoading(false);
-      }
-    }
+    let mounted = true;
 
-    async function loadReviews() {
+    async function loadPageData() {
       try {
-        const res = await fetch(`/api/reviews?carId=${carId}`);
-        if (!res.ok) {
-          throw new Error('Failed to load reviews');
-        }
-        const data = await res.json();
-        setReviews(data.reviews || []);
-      } catch (err: any) {
-        console.error('Failed to load reviews:', err);
-      } finally {
-        setReviewsLoading(false);
-      }
-    }
+        setLoading(true);
+        setReviewsLoading(true);
+        setError(null);
 
-    async function loadOffice() {
-      try {
-        const officeData = await fetchOfficeByCarId(Number(carId));
+        const [carData, reviewsData, officeData] = await Promise.all([
+          fetchCarById(carId),
+          fetchReviewsByCarId(carId),
+          fetchOfficeByCarId(Number(carId)).catch(() => null),
+        ]);
+
+        if (!mounted) return;
+
+        setCar(carData);
+        setReviews(reviewsData);
         setOffice(officeData);
       } catch (err) {
-        console.error('Failed to load office details:', err);
+        if (!mounted) return;
+
+        const message =
+          err instanceof Error ? err.message : 'Failed to load car';
+        setError(message);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          setReviewsLoading(false);
+        }
       }
     }
 
-    loadCar();
-    loadReviews();
-    loadOffice();
+    loadPageData();
+
+    return () => {
+      mounted = false;
+    };
   }, [carId]);
 
   useEffect(() => {
-    async function checkReviewEligibility() {
-      const token = localStorage.getItem('token');
+    if (!carId || reviewsLoading) return;
 
-      if (!token) {
-        setCanAddReview(false);
-        return;
-      }
+    let mounted = true;
 
+    async function loadEligibility() {
       try {
-        const res = await fetch(
-          `/api/reviews/check-eligibility?carId=${carId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
+        const data = await checkReviewEligibility(carId);
 
-        if (res.ok) {
-          const data = await res.json();
-          setCanAddReview(data.canAddReview);
-          setActiveReservationId(data.reservationId);
-        }
-      } catch (error) {
-        console.error('Error checking review eligibility:', error);
+        if (!mounted) return;
+
+        setCanAddReview(data.canAddReview);
+        setActiveReservationId(data.reservationId);
+      } catch (err) {
+        console.error('Error checking review eligibility:', err);
+
+        if (!mounted) return;
+
+        setCanAddReview(false);
+        setActiveReservationId(null);
       }
     }
 
-    if (carId && !reviewsLoading) {
-      checkReviewEligibility();
-    }
-  }, [carId, reviewsLoading]);
+    loadEligibility();
+
+    return () => {
+      mounted = false;
+    };
+  }, [carId, reviewsLoading, user]);
 
   const handleSubmitReview = async (rating: number, comment: string) => {
-    const token = localStorage.getItem('token');
-
-    if (!token) {
+    if (!user) {
       alert('Please sign in to submit a review');
       router.push('/signin');
       return;
@@ -167,26 +169,13 @@ export default function CarDetailPage() {
       throw new Error('No active reservation found');
     }
 
-    const res = await fetch('/api/reviews', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        carId: parseInt(carId),
-        rating,
-        comment,
-        reservationId: activeReservationId,
-      }),
+    const newReview = await submitReview({
+      carId: Number(carId),
+      rating,
+      comment,
+      reservationId: activeReservationId,
     });
 
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to submit review');
-    }
-
-    const newReview = await res.json();
     setReviews((prev) => [newReview, ...prev]);
     setCanAddReview(false);
   };
@@ -230,7 +219,7 @@ export default function CarDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-250 md:max-w-350 mx-auto px-4 py-8 ">
+      <div className="max-w-250 md:max-w-350 mx-auto px-4 py-8">
         <button
           onClick={() => router.back()}
           className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
@@ -263,6 +252,7 @@ export default function CarDetailPage() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               {car.make} {car.model}
             </h1>
+
             <p className="text-xl text-gray-600 mb-6">{car.year}</p>
 
             <div className="mb-6 p-4 bg-indigo-50 rounded-lg">

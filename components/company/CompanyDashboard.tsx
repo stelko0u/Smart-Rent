@@ -143,7 +143,9 @@ export default function CompanyDashboard() {
           <p className="text-3xl font-bold text-gray-900">
             {money(stats?.platformFee)}
           </p>
-          <p className="text-sm text-gray-500 mt-2">Real Stripe fee totals</p>
+          <p className="text-sm text-gray-500 mt-2">
+            Fee based on company maintenance percent
+          </p>
         </div>
 
         <div className="bg-linear-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white">
@@ -265,6 +267,7 @@ export default function CompanyDashboard() {
                 </th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-gray-200">
               {recentReservations.length === 0 ? (
                 <tr>
@@ -283,9 +286,11 @@ export default function CompanyDashboard() {
                         {reservation.carMake} {reservation.carModel}
                       </div>
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {reservation.customerName}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       <div>
                         {new Date(reservation.startDate).toLocaleDateString()}
@@ -294,16 +299,21 @@ export default function CompanyDashboard() {
                         {new Date(reservation.endDate).toLocaleDateString()}
                       </div>
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                       {money(reservation.totalPrice)}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(reservation.status)}`}
+                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                          reservation.status,
+                        )}`}
                       >
                         {reservation.status}
                       </span>
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {reservation.paymentStatus}
                     </td>

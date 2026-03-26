@@ -4,25 +4,16 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
+
 import CheckoutForm from '../../../components/payments/PaymentForm';
+import {
+  fetchReservationById,
+  type ReservationData,
+} from '@/lib/api/reservationApi';
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
 );
-
-interface ReservationData {
-  id: number;
-  carMake: string;
-  carModel: string;
-  carImage: string | null;
-  startDate: string;
-  endDate: string;
-  days: number;
-  pricePerDay: number;
-  totalAmount: number;
-  status: string;
-  paymentMethod: string | null;
-}
 
 export default function PaymentPage() {
   const params = useParams();
@@ -34,46 +25,41 @@ export default function PaymentPage() {
   const [reservation, setReservation] = useState<ReservationData | null>(null);
 
   useEffect(() => {
-    const fetchReservation = async () => {
+    if (!reservationId) return;
+
+    let mounted = true;
+
+    async function loadReservation() {
       try {
         setLoading(true);
+        setError(null);
 
-        const reservationResponse = await fetch(
-          `/api/reservations/${reservationId}`,
-          {
-            credentials: 'include',
-          },
-        );
+        const reservationData = await fetchReservationById(reservationId);
 
-
-        if (!reservationResponse.ok) {
-          const errorData = await reservationResponse.json().catch(() => ({}));
-          console.error('Error response:', errorData);
-          throw new Error(errorData.error || 'Failed to load reservation');
-        }
-
-        const data = await reservationResponse.json();
-
-        if (!data.reservation) {
-          throw new Error('No reservation data in response');
-        }
-
-        setReservation(data.reservation);
+        if (!mounted) return;
+        setReservation(reservationData);
       } catch (err) {
         console.error('Error loading reservation:', err);
+
+        if (!mounted) return;
+
         setError(
           err instanceof Error
             ? err.message
             : 'Error connecting to the server. Please try again.',
         );
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
-    };
-
-    if (reservationId) {
-      fetchReservation();
     }
+
+    loadReservation();
+
+    return () => {
+      mounted = false;
+    };
   }, [reservationId]);
 
   if (loading) {
@@ -144,9 +130,11 @@ export default function PaymentPage() {
               <div className="mb-3 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
                 Secure Checkout
               </div>
+
               <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
                 Complete Your Payment
               </h1>
+
               <p className="mt-2 text-sm text-slate-500">
                 Reservation #{reservationId}
               </p>
@@ -166,7 +154,6 @@ export default function PaymentPage() {
             </p>
 
             <div className="mt-6 space-y-5">
-              {/* Car Image */}
               {reservation.carImage && (
                 <div className="overflow-hidden rounded-2xl">
                   <img
@@ -177,7 +164,6 @@ export default function PaymentPage() {
                 </div>
               )}
 
-              {/* Reservation Details */}
               <div className="space-y-3 rounded-2xl bg-slate-50 p-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Reservation ID</span>
@@ -233,7 +219,6 @@ export default function PaymentPage() {
                 </div>
               </div>
 
-              {/* Price Breakdown */}
               <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">
@@ -255,19 +240,16 @@ export default function PaymentPage() {
                 </div>
               </div>
 
-              {/* Security Notice */}
               <div className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-700">
                 🔒 Your payment is processed securely via Stripe
               </div>
 
-              {/* Calculation Info */}
               <div className="rounded-xl border border-slate-200 bg-white p-3">
                 <p className="text-xs font-medium text-slate-900">
                   Calculation:
                 </p>
                 <p className="mt-1 text-xs text-slate-600">
-                  {reservation.days} days × €
-                  {reservation.pricePerDay} = €
+                  {reservation.days} days × €{reservation.pricePerDay} = €
                   {reservation.totalAmount}
                 </p>
               </div>

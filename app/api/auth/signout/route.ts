@@ -4,13 +4,11 @@ import { NextResponse } from "next/server";
 export async function POST() {
   const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? "token";
 
-  // build response and clear cookie
+
   const res = NextResponse.json({ ok: true });
-  // Clear cookie by setting empty value and maxAge=0
+
   try {
-    // Next.js cookies API (app router)
-    // depending on Next version you can use res.cookies.set(name, value, opts)
-    // this should work in most recent Next versions:
+ 
     res.cookies.set(COOKIE_NAME, "", {
       path: "/",
       httpOnly: true,
@@ -19,7 +17,6 @@ export async function POST() {
       maxAge: 0,
     });
   } catch (err) {
-    // fallback: set header manually
     const cookieStr = `${COOKIE_NAME}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax${
       process.env.NODE_ENV === "production" ? "; Secure" : ""
     }`;

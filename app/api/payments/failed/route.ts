@@ -1,49 +1,21 @@
-import { PaymentsRepository } from '@/lib/repository/PaymentsRepository';
-import { ReservationRepository } from '@/lib/repository/ReservationRepository';
 import { NextResponse } from 'next/server';
+import { markPaymentFailed } from '@/lib/services/payments/markPaymentFailedService';
+import { handleMarkPaymentFailedError } from '@/lib/errors/handleMarkPaymentFailedError';
 
 export async function POST(req: Request) {
   try {
-    const { reservationId, reason } = await req.json();
+    const body = await req.json();
 
-    if (!reservationId) {
-      return NextResponse.json(
-        { ok: false, error: 'Missing reservation ID' },
-        { status: 400 },
-      );
-    }
+    const reservationId = Number(body?.reservationId);
+    const reason = typeof body?.reason === 'string' ? body.reason.trim() : null;
 
-    // Find existing payment
-    const payment = await PaymentsRepository.findByReservation(reservationId);
-
-    if (payment) {
-      // Update payment to FAILED
-      await PaymentsRepository.update(payment.id, {
-        paymentStatus: 'FAILED',
-      });
-    }
-
-    // Update reservation to CANCELLED
-    await ReservationRepository.update(reservationId, {
-      status: 'CANCELLED',
+    const result = await markPaymentFailed({
+      reservationId,
+      reason,
     });
 
-    return NextResponse.json({
-      ok: true,
-      message: 'Payment marked as failed',
-    });
+    return NextResponse.json(result);
   } catch (err) {
-    console.error('POST /api/payments/failed error:', err);
-    return NextResponse.json(
-      {
-        ok: false,
-        error: 'Server error',
-        details:
-          process.env.NODE_ENV === 'development'
-            ? (err as Error)?.message
-            : undefined,
-      },
-      { status: 500 },
-    );
+    return handleMarkPaymentFailedError(err);
   }
 }

@@ -69,6 +69,50 @@ export class ReservationRepository {
     );
   }
 
+  static async countReservationsByCarId(carId: number): Promise<number> {
+    const rows = await query<{ count: string }>(
+      'SELECT COUNT(*) as count FROM "Reservation" WHERE "carId" = $1',
+      [carId],
+    );
+
+    return Number(rows[0]?.count ?? 0);
+  }
+
+  static async getCompanyDashboardReservations(companyId: number) {
+    return query(
+      `SELECT 
+        r.*, 
+        c.make as "carMake", 
+        c.model as "carModel", 
+        u."name" as "userName", 
+        u."email" as "userEmail"
+     FROM "Reservation" r
+     JOIN "Car" c ON r."carId" = c.id
+     LEFT JOIN "User" u ON r."userId" = u.id
+     WHERE c."companyId" = $1
+     ORDER BY r."createdAt" DESC`,
+      [companyId],
+    );
+  }
+
+  static async getReservationsByCompanyId(companyId: number) {
+    return query(
+      `SELECT 
+      r.*,
+      c.id as "carId",
+      c.make as "carMake",
+      c.model as "carModel",
+      r."firstName" || ' ' || r."lastName" as "customerName",
+      r.email as "customerEmail",
+      r.phone as "customerPhone"
+     FROM "Reservation" r
+     JOIN "Car" c ON r."carId" = c.id
+     WHERE c."companyId" = $1
+     ORDER BY r."createdAt" DESC`,
+      [companyId],
+    );
+  }
+
   static async findConflicting(
     carId: number,
     startDate: Date,
@@ -85,5 +129,29 @@ export class ReservationRepository {
        )`,
       [carId, startDate, endDate],
     );
+  }
+
+  static async findReservationDetailsByIdAndUserId(
+    reservationId: number,
+    userId: number,
+  ) {
+    return query(
+      `SELECT 
+      r.*,
+      c.make as "carMake",
+      c.model as "carModel",
+      c.images as "carImages",
+      c."pricePerDay"
+    FROM "Reservation" r
+    JOIN "Car" c ON r."carId" = c.id
+    WHERE r.id = $1 AND r."userId" = $2`,
+      [reservationId, userId],
+    );
+  }
+
+  static async findReservationOwnerById(reservationId: number) {
+    return query(`SELECT id, "userId" FROM "Reservation" WHERE id = $1`, [
+      reservationId,
+    ]);
   }
 }

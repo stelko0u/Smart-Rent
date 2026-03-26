@@ -1,47 +1,56 @@
 'use client';
+
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { requestPasswordReset } from '@/lib/api/userApi';
+
+type FormStatus = 'idle' | 'loading' | 'success';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ForgotPasswordForm() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [status, setStatus] = useState<FormStatus>('idle');
 
-  const validateEmail = (value: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  const validateEmail = (value: string) => EMAIL_REGEX.test(value.trim());
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    if (error) {
+      setError(null);
+    }
+  };
+
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const normalizedEmail = email.trim();
     setError(null);
 
-    if (!validateEmail(email)) {
+    if (!validateEmail(normalizedEmail)) {
       setError('Please enter a valid email address.');
       return;
     }
 
     try {
       setStatus('loading');
-      const res = await fetch('/api/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      if (!res.ok) {
-        if (res.status === 404) {
-          setError('No user found with this email address.');
-        } else {
-          setError('An error occurred. Please try again later.');
-        }
-        setStatus('idle');
-        return;
-      }
+
+      await requestPasswordReset(normalizedEmail);
 
       setStatus('success');
-    } catch (err: any) {
-      setError('An error occurred. Please try again later.');
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'An error occurred. Please try again later.';
+
+      setError(message);
       setStatus('idle');
     }
   };
+
+  const isDisabled = status === 'loading' || status === 'success';
 
   return (
     <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -64,14 +73,17 @@ export default function ForgotPasswordForm() {
             >
               Email address
             </label>
+
             <input
               id="email"
               name="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
               className="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               placeholder="you@example.com"
+              autoComplete="email"
+              disabled={isDisabled}
               required
             />
           </div>
@@ -88,7 +100,7 @@ export default function ForgotPasswordForm() {
           <div>
             <button
               type="submit"
-              disabled={status === 'loading' || status === 'success'}
+              disabled={isDisabled}
               className="w-full inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-60"
             >
               {status === 'loading' ? 'Sending...' : 'Send Instructions'}

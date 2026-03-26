@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { sendVerificationEmail } from '../../../../lib/mail';
+import { sendVerificationEmail } from '../../../../lib/maila';
 import { UserRepository } from '@/lib/repository/UserRepository';
 
 export const runtime = 'nodejs';
@@ -179,6 +179,7 @@ export async function POST(req: Request) {
       dateOfBirth: dob,
       name: `${firstName} ${lastName}`,
       emailVerified: false,
+      mustChangePassword: false,
       role: 'USER',
     });
 

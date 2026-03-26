@@ -1,44 +1,57 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-export interface CurrentUser {
-  id: number;
-  email: string;
-  name: string; // match your API (or firstName/lastName if you prefer)
-  role: string;
-}
+type AuthResponse<TUser> = {
+  ok: boolean;
+  user?: TUser;
+  error?: string;
+};
 
-export function useCurrentUser() {
-  const [userData, setUserData] = useState<CurrentUser | null>(null);
+export function useCurrentUser<TUser = any>() {
+  const [userData, setUserData] = useState<TUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadUser = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (!res.ok) throw new Error('Not authenticated');
+      const res = await fetch('/api/auth/me', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
 
-        const data = await res.json(); // data has { ok: true, user: {...} }
-
-        if (isMounted) setUserData(data.user); // ✅ unwrap user here
-      } catch (err) {
-        if (isMounted) setUserData(null);
-        console.error(err);
-      } finally {
-        if (isMounted) setLoading(false);
+      if (!res.ok) {
+        const data = (await res
+          .json()
+          .catch(() => null)) as AuthResponse<TUser> | null;
+        setUserData(null);
+        setError(data?.error || 'Not authenticated');
+        return;
       }
+
+      const data = (await res.json()) as AuthResponse<TUser>;
+      setUserData(data.user ?? null);
+    } catch (err) {
+      console.error('Failed to load current user:', err);
+      setUserData(null);
+      setError('Failed to load current user');
+    } finally {
+      setLoading(false);
     }
-
-    loadUser();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
-  return { userData, loading, error, isAuthenticated: !!userData };
+  useEffect(() => {
+    loadUser();
+  }, [loadUser]);
+
+  return {
+    userData,
+    loading,
+    error,
+    isAuthenticated: !!userData,
+    refresh: loadUser,
+  };
 }
