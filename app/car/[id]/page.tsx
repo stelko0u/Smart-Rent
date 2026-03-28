@@ -1,8 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import React, { useEffect, useState, Suspense } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import React, { Suspense, useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
 import ImageSlider from '../../../components/vehicles/ImageSlider';
 import ReviewsList from '../../../components/vehicles/ReviewsList';
@@ -14,7 +14,12 @@ import Car from '../../../components/icons/Car';
 import Cube from '../../../components/icons/Cube';
 
 import { Car as CarType } from '../../../types/types';
-import { getLoggedInUser } from '@/lib/api/userApi';
+import {
+  addFavoriteCar,
+  getFavoriteCars,
+  getLoggedInUser,
+  removeFavoriteCar,
+} from '@/lib/api/userApi';
 import { fetchCarById, fetchOfficeByCarId } from '@/lib/api/carApi';
 import {
   fetchReviewsByCarId,
@@ -22,46 +27,33 @@ import {
   submitReview,
 } from '@/lib/api/reviewApi';
 import { Office, User } from '@/types/database';
+import { Heart } from '@/components/icons';
+import { AngleLeft, FullHeart, LocationDot } from '@/components/icons';
 
-function LocationPinIcon({ className = 'w-6 h-6 text-gray-500' }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-      />
-    </svg>
-  );
-}
+const CarLocationMap = dynamic(
+  () => import('@/components/vehicles/CarLocationMap'),
+  { ssr: false },
+);
 
 function CarDetailPageInner() {
-  const CarLocationMap = dynamic(
-    () => import('@/components/vehicles/CarLocationMap'),
-    { ssr: false },
-  );
-
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
 
   const carId = params?.id as string;
+  const numericCarId = Number(carId);
   const shouldOpenReviewForm = searchParams.get('review') === '1';
 
   const [car, setCar] = useState<CarType | null>(null);
-  const [reviews, setReviews] = useState<Array<{ id?: number; rating: number; comment: string; createdAt?: string; user?: { name?: string; email?: string } }>>([]);
+  const [reviews, setReviews] = useState<
+    Array<{
+      id?: number;
+      rating: number;
+      comment: string;
+      createdAt?: string;
+      user?: { name?: string; email?: string };
+    }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,23 +63,43 @@ function CarDetailPageInner() {
   );
   const [user, setUser] = useState<User | null>(null);
   const [office, setOffice] = useState<Office | null>(null);
+  const [liked, setLiked] = useState(false);
+  const [likeLoading, setLikeLoading] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
+
     async function loadUser() {
       try {
         const loggedInUser = await getLoggedInUser();
+
+        if (!mounted) {
+          return;
+        }
+
         setUser(loggedInUser);
       } catch (err) {
         console.error('Failed to load user:', err);
+
+        if (!mounted) {
+          return;
+        }
+
         setUser(null);
       }
     }
 
     loadUser();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (!carId) return;
+    if (!carId) {
+      return;
+    }
 
     let mounted = true;
 
@@ -103,13 +115,17 @@ function CarDetailPageInner() {
           fetchOfficeByCarId(Number(carId)).catch(() => null),
         ]);
 
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         setCar(carData);
         setReviews(reviewsData);
         setOffice(officeData);
       } catch (err) {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         const message =
           err instanceof Error ? err.message : 'Failed to load car';
@@ -130,7 +146,49 @@ function CarDetailPageInner() {
   }, [carId]);
 
   useEffect(() => {
-    if (!carId || reviewsLoading) return;
+    if (!user || !Number.isInteger(numericCarId) || numericCarId <= 0) {
+      setLiked(false);
+      return;
+    }
+
+    let mounted = true;
+
+    async function loadFavoriteState() {
+      try {
+        const favorites = await getFavoriteCars();
+
+        if (!mounted) {
+          return;
+        }
+
+        const isLiked = favorites.some(
+          (favorite) => favorite.id === numericCarId,
+        );
+        setLiked(isLiked);
+      } catch (err) {
+        console.error('Failed to load favorite state:', err);
+
+        if (!mounted) {
+          return;
+        }
+
+        setLiked(false);
+      }
+    }
+
+    loadFavoriteState();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user, numericCarId]);
+
+  useEffect(() => {
+    if (!carId || reviewsLoading || !user) {
+      setCanAddReview(false);
+      setActiveReservationId(null);
+      return;
+    }
 
     let mounted = true;
 
@@ -138,14 +196,18 @@ function CarDetailPageInner() {
       try {
         const data = await checkReviewEligibility(carId);
 
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         setCanAddReview(data.canAddReview);
         setActiveReservationId(data.reservationId);
       } catch (err) {
         console.error('Error checking review eligibility:', err);
 
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         setCanAddReview(false);
         setActiveReservationId(null);
@@ -161,7 +223,6 @@ function CarDetailPageInner() {
 
   const handleSubmitReview = async (rating: number, comment: string) => {
     if (!user) {
-      alert('Please sign in to submit a review');
       router.push('/signin');
       return;
     }
@@ -171,7 +232,7 @@ function CarDetailPageInner() {
     }
 
     const newReview = await submitReview({
-      carId: Number(carId),
+      carId: numericCarId,
       rating,
       comment,
       reservationId: activeReservationId,
@@ -179,6 +240,33 @@ function CarDetailPageInner() {
 
     setReviews((prev) => [newReview, ...prev]);
     setCanAddReview(false);
+  };
+
+  const handleLike = async () => {
+    if (!user) {
+      router.push('/signin');
+      return;
+    }
+
+    if (likeLoading || !Number.isInteger(numericCarId) || numericCarId <= 0) {
+      return;
+    }
+
+    try {
+      setLikeLoading(true);
+
+      if (liked) {
+        await removeFavoriteCar(numericCarId);
+        setLiked(false);
+      } else {
+        await addFavoriteCar(numericCarId);
+        setLiked(true);
+      }
+    } catch (err) {
+      console.error('Failed to update favorite:', err);
+    } finally {
+      setLikeLoading(false);
+    }
   };
 
   const locationLabel =
@@ -205,6 +293,7 @@ function CarDetailPageInner() {
           <h1 className="text-2xl font-bold text-red-600 mb-2">Error</h1>
           <p className="text-gray-600">{error || 'Car not found'}</p>
           <button
+            type="button"
             onClick={() => router.push('/')}
             className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
           >
@@ -219,22 +308,11 @@ function CarDetailPageInner() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-250 md:max-w-350 mx-auto px-4 py-8">
         <button
+          type="button"
           onClick={() => router.back()}
           className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
+          <AngleLeft className="w-5 h-5" />
           Back
         </button>
 
@@ -247,11 +325,31 @@ function CarDetailPageInner() {
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              {car.make} {car.model}
-            </h1>
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  {car.make} {car.model}
+                </h1>
+                <p className="text-xl text-gray-600 mb-6">{car.year}</p>
+              </div>
 
-            <p className="text-xl text-gray-600 mb-6">{car.year}</p>
+              {user && (
+                <button
+                  type="button"
+                  onClick={handleLike}
+                  disabled={likeLoading}
+                  aria-label={
+                    liked ? 'Remove from favorites' : 'Add to favorites'
+                  }
+                >
+                  {liked ? (
+                    <FullHeart className="text-red-500 w-8 h-8 cursor-pointer hover:scale-105 transition-all" />
+                  ) : (
+                    <Heart className="text-gray-400 w-8 h-8 cursor-pointer hover:scale-105 transition-all" />
+                  )}
+                </button>
+              )}
+            </div>
 
             <div className="mb-6 p-4 bg-indigo-50 rounded-lg">
               <div className="text-3xl font-bold text-indigo-600">
@@ -305,7 +403,7 @@ function CarDetailPageInner() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <LocationPinIcon className="text-gray-500 w-6 h-6" />
+                  <LocationDot className="text-gray-500 w-6 h-6" />
                   <span className="text-sm text-gray-600">{locationLabel}</span>
                 </div>
               </div>
@@ -320,12 +418,15 @@ function CarDetailPageInner() {
               </div>
             )}
 
-            <button
-              onClick={() => router.push(`/reservation/${car.id}`)}
-              className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition"
-            >
-              Reserve Now
-            </button>
+            {user && (
+              <button
+                type="button"
+                onClick={() => router.push(`/reservation/${car.id}`)}
+                className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition"
+              >
+                Reserve Now
+              </button>
+            )}
           </div>
         </div>
 

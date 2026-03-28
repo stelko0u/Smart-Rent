@@ -1,19 +1,33 @@
 import { NextResponse } from 'next/server';
 import { AuthError, requireAuthUserFromRequest } from '@/lib/auth';
-import { query } from '@/lib/db';
 import { FavoriteRepository } from '@/lib/repository/FavoriteRepository';
+
+function getCarIdFromBody(body: unknown): number | null {
+  if (typeof body !== 'object' || body === null || !('carId' in body)) {
+    return null;
+  }
+
+  const value = body.carId;
+
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+
+    if (Number.isInteger(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
 
 export async function GET(req: Request) {
   try {
     const user = await requireAuthUserFromRequest(req);
-
-    const favorites = await query(
-      `SELECT c.* FROM "Favorite" f
-       JOIN "Car" c ON f."carId" = c.id
-       WHERE f."userId" = $1
-       ORDER BY f."createdAt" DESC`,
-      [user.id],
-    );
+    const favorites = await FavoriteRepository.findCarsByUser(user.id);
 
     return NextResponse.json({
       ok: true,
@@ -39,18 +53,17 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const user = await requireAuthUserFromRequest(req);
-
-    const body = await req.json();
-    const { carId } = body;
+    const body = (await req.json()) as unknown;
+    const carId = getCarIdFromBody(body);
 
     if (!carId) {
       return NextResponse.json(
-        { ok: false, error: 'Car ID is required' },
+        { ok: false, error: 'Valid car ID is required' },
         { status: 400 },
       );
     }
 
-    const favorite = await FavoriteRepository.create(user.id, Number(carId));
+    const favorite = await FavoriteRepository.create(user.id, carId);
 
     return NextResponse.json({
       ok: true,

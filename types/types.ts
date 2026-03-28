@@ -121,7 +121,3 @@ export type CarRow = {
   fuelType?: string;
 };
 
-// export type Company = {
-//   id: number;
-//   name: string;
-// };

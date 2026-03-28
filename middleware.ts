@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 type SessionPayload = {
-  id: number;
+  id?: number;
+  userId?: number;
   email: string;
   role: 'ADMIN' | 'COMPANY' | 'USER';
   mustChangePassword?: boolean;
   companyId?: number | null;
+  banned?: boolean;
 };
 
 const PUBLIC_PATHS = [
@@ -16,10 +18,19 @@ const PUBLIC_PATHS = [
   '/forgot-password',
   '/reset-password',
   '/review',
+  '/banned',
 ];
 
 const PUBLIC_API_PREFIXES = [
-  '/api/auth',
+  '/api/auth/signin',
+  '/api/auth/signup',
+  '/api/auth/signout',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/auth/verify',
+  '/api/auth/verify-reset-token',
+  '/api/auth/resend-verification',
+  '/api/auth/complete-onboarding',
   '/api/cars',
   '/api/offices',
   '/api/reviews',
@@ -32,6 +43,7 @@ const PUBLIC_API_PREFIXES = [
 function isPublicPath(pathname: string) {
   return (
     PUBLIC_PATHS.includes(pathname) ||
+    pathname.startsWith('/car/') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
     pathname.startsWith('/images') ||
@@ -73,12 +85,42 @@ function withLocaleCookie(req: NextRequest, res: NextResponse) {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const session = await readSession(req);
+
+  // Баннат user: само /banned и signout
+  if (session?.banned) {
+    const allowedForBanned =
+      pathname === '/banned' ||
+      pathname.startsWith('/api/auth/signout') ||
+      pathname.startsWith('/api/auth/me') ||
+      pathname.startsWith('/_next') ||
+      pathname.startsWith('/favicon') ||
+      pathname.startsWith('/images') ||
+      pathname.startsWith('/uploads');
+
+    if (!allowedForBanned) {
+      if (pathname.startsWith('/api/')) {
+        return withLocaleCookie(
+          req,
+          NextResponse.json(
+            { ok: false, error: 'account_banned' },
+            { status: 403 },
+          ),
+        );
+      }
+
+      const url = req.nextUrl.clone();
+      url.pathname = '/banned';
+      url.search = '';
+      return withLocaleCookie(req, NextResponse.redirect(url));
+    }
+
+    return withLocaleCookie(req, NextResponse.next());
+  }
 
   if (isPublicPath(pathname)) {
     return withLocaleCookie(req, NextResponse.next());
   }
-
-  const session = await readSession(req);
 
   if (!session) {
     const url = req.nextUrl.clone();

@@ -1,3 +1,13 @@
+'use client';
+
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
 export type Locale = 'bg' | 'en';
 
 type TranslationPrimitive = string;
@@ -326,10 +336,15 @@ export function getNestedValue(
   obj: Record<string, TranslationValue>,
   path: string,
 ): string | undefined {
-  return path.split('.').reduce<TranslationValue | undefined>((acc, part) => {
-    if (!acc || typeof acc === 'string') return undefined;
-    return acc[part];
-  }, obj) as string | undefined;
+  const result = path.split('.').reduce<TranslationValue | undefined>(
+    (acc, part) => {
+      if (!acc || typeof acc === 'string') return undefined;
+      return acc[part];
+    },
+    obj,
+  );
+
+  return typeof result === 'string' ? result : undefined;
 }
 
 export function interpolate(
@@ -341,4 +356,77 @@ export function interpolate(
   return Object.entries(params).reduce((result, [key, value]) => {
     return result.replaceAll(`{{${key}}}`, String(value));
   }, template);
+}
+
+type LanguageContextType = {
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  mounted: boolean;
+};
+
+const LanguageContext = createContext<LanguageContextType | undefined>(
+  undefined,
+);
+
+type LanguageProviderProps = {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+};
+
+export function LanguageProvider({
+  children,
+  initialLocale = 'bg',
+}: LanguageProviderProps) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const savedLocale = window.localStorage.getItem('locale');
+
+    if (savedLocale === 'bg' || savedLocale === 'en') {
+      setLocaleState(savedLocale);
+    }
+
+    setMounted(true);
+  }, []);
+
+  const setLocale = (nextLocale: Locale) => {
+    window.localStorage.setItem('locale', nextLocale);
+    setLocaleState(nextLocale);
+  };
+
+  const value = useMemo<LanguageContextType>(() => {
+    return {
+      locale,
+      setLocale,
+      mounted,
+      t: (key: string, params?: Record<string, string | number>) => {
+        const template = getNestedValue(
+          translations[locale] as Record<string, TranslationValue>,
+          key,
+        );
+
+        if (!template) return key;
+
+        return interpolate(template, params);
+      },
+    };
+  }, [locale, mounted]);
+
+  return (
+    <LanguageContext.Provider value={value}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+export function useTranslation() {
+  const context = useContext(LanguageContext);
+
+  if (!context) {
+    throw new Error('useTranslation must be used inside LanguageProvider');
+  }
+
+  return context;
 }

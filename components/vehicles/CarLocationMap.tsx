@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import { MapPin } from '@/components/icons';
 
 type Props = {
   lat: number;
@@ -31,19 +32,20 @@ const classes = {
 const carMarkerIcon = L.divIcon({
   className: 'bg-transparent border-0',
   html: `
-    <div class="relative h-[44px] w-[44px]">
+    <div class="relative h-11 w-11">
       <div
-        class="absolute left-1/2 top-1/2 h-[68px] w-[68px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500/45 animate-ping"
+        class="absolute left-1/2 top-1/2 h-17 w-17 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500/45 animate-ping"
         style="animation-duration: 2.6s;"
       ></div>
 
       <div
-        class="absolute left-1/2 top-1/2 h-[68px] w-[68px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500/30 animate-ping"
+        class="absolute left-1/2 top-1/2 h-17 w-17 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500/30 animate-ping"
         style="animation-delay: 1.2s; animation-duration: 2.6s;"
       ></div>
 
-      <div class="absolute inset-0 z-[2] flex items-center justify-center rounded-full border-[3px] border-white bg-gradient-to-br from-indigo-600 to-violet-600 shadow-[0_10px_25px_rgba(79,70,229,0.45),0_4px_12px_rgba(0,0,0,0.22)]">
-        <span class="text-[18px] leading-none -translate-y-[1px]">🚗</span>
+      <div class="absolute inset-0 z-2 flex items-center justify-center rounded-full border-[3px] border-white bg-linear-to-br from-indigo-600 to-violet-600 shadow-[0_10px_25px_rgba(79,70,229,0.45),0_4px_12px_rgba(0,0,0,0.22)]">
+        <span class="text-[18px] leading-none -translate-y-1px">🚗
+        </span>
       </div>
     </div>
   `,
@@ -121,10 +123,9 @@ export default function CarLocationMap({ lat, lng, label }: Props) {
       </div>
 
       {!showMap ? (
-        <div className="flex h-72 items-center justify-center bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50 px-6 text-center">
+        <div className="flex h-72 items-center justify-center bg-linear-to-br from-slate-100 via-slate-50 to-indigo-50 px-6 text-center">
           <div className="max-w-md">
-            <div className="mb-4 text-5xl">📍</div>
-
+            <MapPin className="mx-auto mb-4 h-12 w-12 text-red-500" />
             <h4 className="mb-2 text-xl font-semibold text-slate-900">
               {title}
             </h4>
@@ -155,15 +156,15 @@ export default function CarLocationMap({ lat, lng, label }: Props) {
           </div>
         </div>
       ) : (
-        <div id="car-location-map-panel" className="relative h-[420px] w-full">
-          <div className="pointer-events-none absolute left-4 top-4 z-[500] rounded-2xl bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
+        <div id="car-location-map-panel" className="relative h-105 w-full">
+          <div className="pointer-events-none absolute left-4 top-4 z-500 rounded-2xl bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
             <div className="text-sm font-semibold text-slate-900">{title}</div>
             <div className="mt-1 text-xs text-slate-500">
               Координати: {formattedLat}, {formattedLng}
             </div>
           </div>
 
-          <div className="absolute right-4 top-4 z-[500]">
+          <div className="absolute right-4 top-4 z-500">
             <a
               href={googleMapsUrl}
               target="_blank"
@@ -189,7 +190,7 @@ export default function CarLocationMap({ lat, lng, label }: Props) {
 
             <Marker position={[lat, lng]} icon={carMarkerIcon}>
               <Popup>
-                <div className="min-w-[200px]">
+                <div className="min-w-50">
                   <div className="font-semibold text-slate-900">{title}</div>
 
                   <div className="mt-1 text-sm text-slate-600">

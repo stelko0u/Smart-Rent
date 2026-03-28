@@ -2,7 +2,6 @@
 
 import React, {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -11,84 +10,66 @@ import React, {
 import {
   getNestedValue,
   interpolate,
+  Locale,
   translations,
-  type Locale,
+  TranslationValue,
 } from '@/lib/i18n/translations';
-
-type TranslateParams = Record<string, string | number>;
 
 type LanguageContextType = {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: string, params?: TranslateParams) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  mounted: boolean;
 };
 
-const DEFAULT_LOCALE: Locale = 'bg';
-const STORAGE_KEY = 'locale';
-const COOKIE_KEY = 'locale';
+const LanguageContext = createContext<LanguageContextType | undefined>(
+  undefined,
+);
 
-const LanguageContext = createContext<LanguageContextType | null>(null);
+type LanguageProviderProps = {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+};
 
-function getInitialLocale(): Locale {
-  if (typeof document === 'undefined') {
-    return DEFAULT_LOCALE;
-  }
-
-  const cookieMatch = document.cookie.match(
-    new RegExp(`(?:^|; )${COOKIE_KEY}=([^;]*)`),
-  );
-
-  const cookieLocale = cookieMatch?.[1];
-  if (cookieLocale === 'bg' || cookieLocale === 'en') {
-    return cookieLocale;
-  }
-
-  const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (saved === 'bg' || saved === 'en') {
-    return saved;
-  }
-
-  return DEFAULT_LOCALE;
-}
-
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(getInitialLocale());
+export function LanguageProvider({
+  children,
+  initialLocale = 'bg',
+}: LanguageProviderProps) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const initial = getInitialLocale();
-    document.documentElement.lang = initial;
+    const savedLocale = window.localStorage.getItem('locale');
+
+    if (savedLocale === 'bg' || savedLocale === 'en') {
+      setLocaleState(savedLocale);
+    }
+
+    setMounted(true);
   }, []);
 
-  const setLocale = useCallback((nextLocale: Locale) => {
+  const setLocale = (nextLocale: Locale) => {
+    window.localStorage.setItem('locale', nextLocale);
     setLocaleState(nextLocale);
-    window.localStorage.setItem(STORAGE_KEY, nextLocale);
-    document.cookie = `${COOKIE_KEY}=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
-    document.documentElement.lang = nextLocale;
-  }, []);
+  };
 
-  const t = useCallback(
-    (key: string, params?: TranslateParams) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const selected = translations[locale] as unknown as Record<string, any>;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fallback = translations.bg as unknown as Record<string, any>;
-
-      const value =
-        getNestedValue(selected, key) ?? getNestedValue(fallback, key) ?? key;
-
-      return interpolate(value, params);
-    },
-    [locale],
-  );
-
-  const value = useMemo(
-    () => ({
+  const value = useMemo<LanguageContextType>(() => {
+    return {
       locale,
       setLocale,
-      t,
-    }),
-    [locale, setLocale, t],
-  );
+      mounted,
+      t: (key: string, params?: Record<string, string | number>) => {
+        const template = getNestedValue(
+          translations[locale] as Record<string, TranslationValue>,
+          key,
+        );
+
+        if (!template) return key;
+
+        return interpolate(template, params);
+      },
+    };
+  }, [locale, mounted]);
 
   return (
     <LanguageContext.Provider value={value}>

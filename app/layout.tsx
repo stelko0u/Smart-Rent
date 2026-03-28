@@ -10,7 +10,7 @@ export default function RootLayout({
   return (
     <html lang="bg">
       <body>
-        <LanguageProvider>
+        <LanguageProvider initialLocale="bg">
           {children}
           <Toaster
             position="top-center"

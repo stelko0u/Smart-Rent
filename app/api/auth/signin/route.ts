@@ -30,8 +30,14 @@ function normalizeRole(role: unknown): 'USER' | 'ADMIN' | 'COMPANY' | null {
   return null;
 }
 
-function getRedirectByRole(role: 'USER' | 'ADMIN' | 'COMPANY' | null) {
-  switch (role) {
+function getRedirectByUser(user: {
+  banned?: boolean;
+  role: 'USER' | 'ADMIN' | 'COMPANY' | null;
+}) {
+  console.log('Determining redirect for user:', user.banned, user.role);
+  if (user.banned) return '/banned';
+
+  switch (user.role) {
     case 'ADMIN':
     case 'COMPANY':
     case 'USER':
@@ -108,6 +114,7 @@ export async function POST(req: Request) {
         email: user.email,
         role: normalizedRole,
         companyId: user.companyId ?? null,
+        banned: Boolean(user.banned),
       },
       JWT_SECRET,
       {
@@ -125,8 +132,14 @@ export async function POST(req: Request) {
           name: user.name ?? null,
           role: normalizedRole,
           companyId: user.companyId ?? null,
+          banned: Boolean(user.banned),
+          banReason: user.banReason ?? null,
+          bannedAt: user.bannedAt ?? null,
         },
-        redirectTo: getRedirectByRole(normalizedRole),
+        redirectTo: getRedirectByUser({
+          banned: Boolean(user.banned),
+          role: normalizedRole,
+        }),
       },
       { status: 200 },
     );

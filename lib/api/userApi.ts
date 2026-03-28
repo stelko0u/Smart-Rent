@@ -107,7 +107,9 @@ type GetUserReviewsResponse = {
   reviews?: UserReview[];
 };
 
-export async function getLoggedInUser(): Promise<import('@/types/database').User | null> {
+export async function getLoggedInUser(): Promise<
+  import('@/types/database').User | null
+> {
   try {
     const res = await fetch('/api/auth/me', {
       method: 'GET',
@@ -142,7 +144,6 @@ export async function verifyResetToken(
   const data = await res.json();
   return data;
 }
-
 
 export async function signInUser(
   payload: SignInPayload,
@@ -258,6 +259,23 @@ export async function getFavoriteCars(): Promise<FavoriteCar[]> {
   return data?.favorites ?? [];
 }
 
+export async function addFavoriteCar(carId: number): Promise<void> {
+  const res = await fetch('/api/user/favorites', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ carId }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error || 'Failed to add favorite');
+  }
+}
+
 export async function removeFavoriteCar(carId: number): Promise<void> {
   const res = await fetch(`/api/user/favorites/${carId}`, {
     method: 'DELETE',
@@ -267,8 +285,9 @@ export async function removeFavoriteCar(carId: number): Promise<void> {
     },
   });
 
+  const data = await res.json().catch(() => null);
+
   if (!res.ok) {
-    const data = await res.json().catch(() => null);
     throw new Error(data?.error || 'Failed to remove favorite');
   }
 }

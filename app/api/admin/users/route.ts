@@ -85,7 +85,6 @@ export async function PATCH(req: Request) {
       );
     }
 
-    // Не позволявай ban на ADMIN потребители
     if (user.role === 'ADMIN') {
       return NextResponse.json(
         { ok: false, error: 'cannot_ban_admin' },
