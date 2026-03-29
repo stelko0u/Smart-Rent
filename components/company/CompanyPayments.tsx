@@ -33,6 +33,18 @@ interface Payment {
   carLabel?: string;
 }
 
+interface PaymentTotals {
+  revenue: number;
+  fee: number;
+  net: number;
+  paid: number;
+  pending: number;
+  onlineRevenue: number;
+  cashRevenue: number;
+  onlineCount: number;
+  cashCount: number;
+}
+
 const PAGE_SIZE = 8;
 
 function money(value?: number) {
@@ -59,6 +71,7 @@ function getPaymentTone(
 ): 'gray' | 'amber' | 'green' | 'red' | 'indigo' {
   switch (status) {
     case 'PAID':
+    case 'SUCCEEDED':
       return 'green';
     case 'PENDING':
       return 'amber';
@@ -71,8 +84,18 @@ function getPaymentTone(
 }
 
 function normalizePaymentMethod(value: string) {
-  if (value === 'CARD') {
+  const normalized = value.toUpperCase();
+
+  if (normalized === 'CARD') {
     return 'Online card';
+  }
+
+  if (normalized === 'CASH') {
+    return 'Cash';
+  }
+
+  if (normalized === 'ON_SPOT') {
+    return 'Cash on spot';
   }
 
   return value || '—';
@@ -88,6 +111,21 @@ function shortId(value?: string | null) {
   }
 
   return `${value.slice(0, 14)}…${value.slice(-6)}`;
+}
+
+function isPaidPayment(payment: Payment) {
+  const status = payment.paymentStatus.toUpperCase();
+  return status === 'PAID' || status === 'SUCCEEDED';
+}
+
+function isOnlinePayment(paymentMethod: string) {
+  const normalized = paymentMethod.toUpperCase();
+  return normalized === 'CARD' || normalized === 'ONLINE';
+}
+
+function isCashPayment(paymentMethod: string) {
+  const normalized = paymentMethod.toUpperCase();
+  return normalized === 'CASH' || normalized === 'ON_SPOT';
 }
 
 export default function CompanyPayments() {
@@ -160,7 +198,7 @@ export default function CompanyPayments() {
   }, [filteredPayments, currentPage]);
 
   const totals = useMemo(() => {
-    return filteredPayments.reduce(
+    return filteredPayments.reduce<PaymentTotals>(
       (accumulator, payment) => {
         accumulator.revenue += Number(payment.amount || 0);
         accumulator.fee += Number(payment.platformFee || 0);
@@ -174,6 +212,18 @@ export default function CompanyPayments() {
           accumulator.pending += 1;
         }
 
+        if (isPaidPayment(payment)) {
+          const amount = Number(payment.amount || 0);
+
+          if (isOnlinePayment(payment.paymentMethod)) {
+            accumulator.onlineRevenue += amount;
+            accumulator.onlineCount += 1;
+          } else if (isCashPayment(payment.paymentMethod)) {
+            accumulator.cashRevenue += amount;
+            accumulator.cashCount += 1;
+          }
+        }
+
         return accumulator;
       },
       {
@@ -182,6 +232,10 @@ export default function CompanyPayments() {
         net: 0,
         paid: 0,
         pending: 0,
+        onlineRevenue: 0,
+        cashRevenue: 0,
+        onlineCount: 0,
+        cashCount: 0,
       },
     );
   }, [filteredPayments]);
@@ -189,7 +243,7 @@ export default function CompanyPayments() {
   if (loading) {
     return (
       <div className="rounded-[28px] border border-gray-200 bg-white p-8 shadow-sm">
-        <div className="space-y-4 animate-pulse">
+        <div className="animate-pulse space-y-4">
           <div className="h-8 w-48 rounded-xl bg-gray-200" />
           <div className="h-4 w-72 rounded-xl bg-gray-100" />
           <div className="grid gap-4 pt-4 md:grid-cols-2 xl:grid-cols-4">
@@ -210,7 +264,7 @@ export default function CompanyPayments() {
       <CompanyPanelPageHeader
         eyebrow="Payments"
         title="Payments overview"
-        description="Professional payment history with a cleaner responsive layout and no horizontal scrolling."
+        description="Professional payment history with online and cash breakdown for the company."
         rightSlot={
           <div className="grid gap-3 sm:grid-cols-2">
             <CompanyPanelInfoCard
@@ -234,7 +288,7 @@ export default function CompanyPayments() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <CompanyPanelStatCard
           title="Revenue"
           value={money(totals.revenue)}
@@ -242,6 +296,31 @@ export default function CompanyPayments() {
           icon={<BadgeDollar className="h-7 w-7" />}
           variant="accent"
         />
+        <CompanyPanelStatCard
+          title="Online payments"
+          value={money(totals.onlineRevenue)}
+          subtitle="Paid online card transactions"
+          icon={<Check className="h-7 w-7" />}
+          badge={`${totals.onlineCount} paid`}
+        />
+        <CompanyPanelStatCard
+          title="Cash payments"
+          value={money(totals.cashRevenue)}
+          subtitle="Paid cash transactions"
+          icon={<BadgeDollar className="h-7 w-7" />}
+          variant="success"
+          badge={`${totals.cashCount} paid`}
+        />
+        <CompanyPanelStatCard
+          title="Paid records"
+          value={String(totals.paid)}
+          subtitle="Successful finalized payments"
+          icon={<Clock className="h-7 w-7" />}
+          badge={`${totals.pending} pending`}
+        />
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <CompanyPanelStatCard
           title="Platform fee"
           value={money(totals.fee)}
@@ -256,11 +335,24 @@ export default function CompanyPayments() {
           variant="success"
         />
         <CompanyPanelStatCard
-          title="Paid records"
-          value={String(totals.paid)}
-          subtitle="Successful finalized payments"
-          icon={<Clock className="h-7 w-7" />}
-          badge={`${totals.pending} pending`}
+          title="Online share"
+          value={
+            totals.revenue > 0
+              ? `${Math.round((totals.onlineRevenue / totals.revenue) * 100)}%`
+              : '0%'
+          }
+          subtitle="Share from all listed amounts"
+          icon={<BadgeDollar className="h-7 w-7" />}
+        />
+        <CompanyPanelStatCard
+          title="Cash share"
+          value={
+            totals.revenue > 0
+              ? `${Math.round((totals.cashRevenue / totals.revenue) * 100)}%`
+              : '0%'
+          }
+          subtitle="Share from all listed amounts"
+          icon={<BadgeDollar className="h-7 w-7" />}
         />
       </section>
 

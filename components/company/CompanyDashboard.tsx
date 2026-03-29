@@ -3,8 +3,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { BadgeDollar, Cars, Check, Clipboard, Clock } from '../icons';
 import { MetricCard } from '../ui/MetricCard';
-import { getCompanyDashboard } from '@/lib/api/companyApi';
-
+import {
+  getCompanyDashboard,
+  getCompanyPayments,
+  getStripeLoginLink,
+} from '@/lib/api/companyApi';
 interface DashboardStats {
   totalRevenue: number;
   platformFee: number;
@@ -29,6 +32,31 @@ interface RecentReservation {
   status: string;
   paymentStatus: string;
   customerName: string;
+}
+
+interface Payment {
+  source?: 'stripe' | 'database';
+  id?: number;
+  reservationId: number | null;
+  paymentIntentId?: string;
+  chargeId?: string | null;
+  amount: number;
+  platformFee: number;
+  companyEarnings: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  paidAt?: string;
+  createdAt: string;
+  customerName?: string;
+  customerEmail?: string;
+  carLabel?: string;
+}
+
+interface PaymentBreakdown {
+  onlineRevenue: number;
+  cashRevenue: number;
+  onlineCount: number;
+  cashCount: number;
 }
 
 interface StatCardProps {
@@ -90,6 +118,49 @@ function getPaymentClassName(status: string) {
   }
 }
 
+function isPaidPayment(payment: Payment) {
+  const status = payment.paymentStatus.toUpperCase();
+  return status === 'PAID' || status === 'SUCCEEDED';
+}
+
+function isOnlinePayment(paymentMethod: string) {
+  const normalized = paymentMethod.toUpperCase();
+  return normalized === 'CARD' || normalized === 'ONLINE';
+}
+
+function isCashPayment(paymentMethod: string) {
+  const normalized = paymentMethod.toUpperCase();
+  return normalized === 'CASH' || normalized === 'ON_SPOT';
+}
+
+function buildPaymentBreakdown(payments: Payment[]): PaymentBreakdown {
+  return payments.reduce<PaymentBreakdown>(
+    (accumulator, payment) => {
+      if (!isPaidPayment(payment)) {
+        return accumulator;
+      }
+
+      const amount = Number(payment.amount || 0);
+
+      if (isOnlinePayment(payment.paymentMethod)) {
+        accumulator.onlineRevenue += amount;
+        accumulator.onlineCount += 1;
+      } else if (isCashPayment(payment.paymentMethod)) {
+        accumulator.cashRevenue += amount;
+        accumulator.cashCount += 1;
+      }
+
+      return accumulator;
+    },
+    {
+      onlineRevenue: 0,
+      cashRevenue: 0,
+      onlineCount: 0,
+      cashCount: 0,
+    },
+  );
+}
+
 function StatCard({
   title,
   value,
@@ -147,15 +218,24 @@ export default function CompanyDashboard() {
   const [recentReservations, setRecentReservations] = useState<
     RecentReservation[]
   >([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const data = await getCompanyDashboard();
-        setStats(data.stats);
-        setRecentReservations(data.recentReservations);
+        setLoading(true);
+        setError(null);
+
+        const [dashboardData, paymentsData] = await Promise.all([
+          getCompanyDashboard(),
+          getCompanyPayments(),
+        ]);
+
+        setStats(dashboardData.stats);
+        setRecentReservations(dashboardData.recentReservations);
+        setPayments(paymentsData.payments);
       } catch (err: unknown) {
         setError(
           err instanceof Error ? err.message : 'Failed to load dashboard',
@@ -178,10 +258,14 @@ export default function CompanyDashboard() {
     );
   }, [stats]);
 
+  const paymentBreakdown = useMemo(() => {
+    return buildPaymentBreakdown(payments);
+  }, [payments]);
+
   if (loading) {
     return (
       <div className="rounded-3xl border border-gray-200 bg-white p-10 shadow-sm">
-        <div className="space-y-3 animate-pulse">
+        <div className="animate-pulse space-y-3">
           <div className="h-8 w-56 rounded-xl bg-gray-200" />
           <div className="h-4 w-80 max-w-full rounded-xl bg-gray-100" />
           <div className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
@@ -225,6 +309,20 @@ export default function CompanyDashboard() {
               Clean overview of earnings, reservations and payment health for
               your company account.
             </p>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const url = await getStripeLoginLink();
+                  window.open(url, '_blank');
+                } catch (err) {
+                  console.error('Stripe login error:', err);
+                }
+              }}
+              className=" text-white hover:scale-101 left-0 bg-blue-500 px-3 py-2 rounded-full font-bold transition-all duration-200 cursor-pointer"
+            >
+              View balance and payouts in Stripe
+            </button>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[360px]">
@@ -257,7 +355,7 @@ export default function CompanyDashboard() {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total revenue"
           value={money(stats.totalRevenue)}
@@ -285,6 +383,33 @@ export default function CompanyDashboard() {
           subtitle="Professional summary for the company panel"
           icon={<BadgeDollar className="h-7 w-7" />}
           badge={stats.moneySource === 'stripe' ? 'Synced' : 'Internal'}
+        />
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          title="Online payments"
+          value={`${paymentBreakdown.onlineRevenue.toFixed(2)} €`}
+          icon={<BadgeDollar className="h-5 w-5 text-blue-600" />}
+          accentClassName="bg-blue-50"
+        />
+        <MetricCard
+          title="Cash payments"
+          value={`${paymentBreakdown.cashRevenue.toFixed(2)} €`}
+          icon={<BadgeDollar className="h-5 w-5 text-emerald-600" />}
+          accentClassName="bg-emerald-50"
+        />
+        <MetricCard
+          title="Online paid count"
+          value={paymentBreakdown.onlineCount}
+          icon={<Check className="h-5 w-5 text-indigo-600" />}
+          accentClassName="bg-indigo-50"
+        />
+        <MetricCard
+          title="Cash paid count"
+          value={paymentBreakdown.cashCount}
+          icon={<Check className="h-5 w-5 text-amber-600" />}
+          accentClassName="bg-amber-50"
         />
       </section>
 
@@ -428,6 +553,18 @@ export default function CompanyDashboard() {
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4">
+                <span className="text-sm text-gray-500">Online payments</span>
+                <span className="text-sm font-semibold text-blue-700">
+                  {money(paymentBreakdown.onlineRevenue)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm text-gray-500">Cash payments</span>
+                <span className="text-sm font-semibold text-emerald-700">
+                  {money(paymentBreakdown.cashRevenue)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
                 <span className="text-sm text-gray-500">Platform fee</span>
                 <span className="text-sm font-semibold text-gray-900">
                   {money(stats.platformFee)}
@@ -450,14 +587,14 @@ export default function CompanyDashboard() {
               Stripe status
             </h3>
             <div className="mt-5 grid gap-3">
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              {/* <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">
                   Available in Stripe
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-gray-950">
                   {money(stats.balanceAvailable)}
                 </p>
-              </div>
+              </div> */}
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700">
                   Pending in Stripe
@@ -472,6 +609,7 @@ export default function CompanyDashboard() {
               company dashboard uses your earnings data for a cleaner and more
               reliable financial overview.
             </p>
+            <p></p>
           </div>
         </div>
       </section>

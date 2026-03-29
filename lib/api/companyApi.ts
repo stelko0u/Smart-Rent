@@ -446,3 +446,12 @@ export async function getCompanyStripeOnboardingLink(): Promise<string> {
 
   return data.url;
 }
+
+export async function getStripeLoginLink(): Promise<string> {
+  const data = await apiJson<{ ok: boolean; url: string }, undefined>(
+    '/api/company/stripe-login',
+    'POST',
+  );
+
+  return data.url;
+}

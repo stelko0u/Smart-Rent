@@ -5,7 +5,88 @@ import { PaymentsRepository } from '@/lib/repository/PaymentsRepository';
 import {
   listStripePaymentsForCompany,
   summarizePayments,
+  type CompanyStripePaymentRow,
 } from '@/lib/services/stripe/companyFinance';
+
+type DatabasePaymentRow = {
+  source: 'database';
+  id?: number;
+  reservationId: number | null;
+  paymentIntentId: string;
+  chargeId: string | null;
+  amount: number;
+  platformFee: number;
+  companyEarnings: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  createdAt: string;
+  paidAt: string;
+  customerName: string;
+  customerEmail: string;
+  carLabel: string;
+};
+
+function normalizeDatabasePayments(
+  payments: Array<{
+    id?: number;
+    reservationId?: number | null;
+    stripePaymentIntentId?: string | null;
+    stripeChargeId?: string | null;
+    amount?: number | string | null;
+    platformFee?: number | string | null;
+    companyEarnings?: number | string | null;
+    paymentMethod?: string | null;
+    paymentStatus?: string | null;
+    createdAt?: Date | string | null;
+    paidAt?: Date | string | null;
+    userName?: string | null;
+    userEmail?: string | null;
+    make?: string | null;
+    model?: string | null;
+    year?: number | null;
+  }>,
+): DatabasePaymentRow[] {
+  return payments.map((item) => ({
+    source: 'database',
+    id: item.id,
+    reservationId: item.reservationId ?? null,
+    paymentIntentId: item.stripePaymentIntentId ?? '',
+    chargeId: item.stripeChargeId ?? null,
+    amount: Number(item.amount ?? 0),
+    platformFee: Number(item.platformFee ?? 0),
+    companyEarnings: Number(item.companyEarnings ?? 0),
+    paymentMethod: item.paymentMethod ?? '',
+    paymentStatus: item.paymentStatus ?? 'PENDING',
+    createdAt: new Date(item.createdAt ?? new Date()).toISOString(),
+    paidAt: new Date(item.paidAt ?? item.createdAt ?? new Date()).toISOString(),
+    customerName: item.userName ?? '',
+    customerEmail: item.userEmail ?? '',
+    carLabel: [item.make, item.model, item.year].filter(Boolean).join(' '),
+  }));
+}
+
+function isPaidStatus(status: string) {
+  const normalized = status.toUpperCase();
+  return normalized === 'PAID' || normalized === 'SUCCEEDED';
+}
+
+function shouldIncludeDatabasePaymentWhenStripeExists(
+  payment: DatabasePaymentRow,
+  stripePaymentIntentIds: Set<string>,
+) {
+  const paymentMethod = payment.paymentMethod.toUpperCase();
+  const paymentIntentId = payment.paymentIntentId.trim();
+
+  if (paymentMethod === 'CASH' || paymentMethod === 'ON_SPOT') {
+    return true;
+  }
+
+  if (!paymentIntentId) {
+    return true;
+  }
+
+  return !stripePaymentIntentIds.has(paymentIntentId);
+}
 
 export async function GET() {
   try {
@@ -19,13 +100,46 @@ export async function GET() {
       );
     }
 
+    const databasePayments = normalizeDatabasePayments(
+      await PaymentsRepository.findByCompany(company.id),
+    );
+
     try {
-      const payments = await listStripePaymentsForCompany(company);
-      const totals = summarizePayments(payments);
+      const stripePayments = await listStripePaymentsForCompany(company);
+
+      const stripePaymentIntentIds = new Set(
+        stripePayments
+          .map((payment) => payment.paymentIntentId.trim())
+          .filter((paymentIntentId) => paymentIntentId.length > 0),
+      );
+
+      const supplementalDatabasePayments = databasePayments.filter((payment) =>
+        shouldIncludeDatabasePaymentWhenStripeExists(
+          payment,
+          stripePaymentIntentIds,
+        ),
+      );
+
+      const payments: Array<CompanyStripePaymentRow | DatabasePaymentRow> = [
+        ...stripePayments,
+        ...supplementalDatabasePayments,
+      ].sort(
+        (left, right) =>
+          new Date(right.paidAt || right.createdAt).getTime() -
+          new Date(left.paidAt || left.createdAt).getTime(),
+      );
+
+      const paidPayments = payments.filter((payment) =>
+        isPaidStatus(payment.paymentStatus),
+      );
+
+      const totals = summarizePayments(
+        paidPayments as CompanyStripePaymentRow[],
+      );
 
       return NextResponse.json({
         ok: true,
-        source: 'stripe',
+        source: 'mixed',
         payments,
         totalRevenue: totals.totalRevenue,
         totalPlatformFee: totals.platformFee,
@@ -34,43 +148,21 @@ export async function GET() {
     } catch (stripeErr) {
       console.error('Stripe payments fallback to database:', stripeErr);
 
-      const payments = await PaymentsRepository.findByCompany(company.id);
-      const totalEarnings = await PaymentsRepository.getTotalEarnings(
-        company.id,
+      const paidPayments = databasePayments.filter((payment) =>
+        isPaidStatus(payment.paymentStatus),
       );
 
-      const totalRevenue = Number(
-        payments
-          .reduce((sum, item) => sum + Number(item.amount || 0), 0)
-          .toFixed(2),
-      );
-
-      const totalPlatformFee = Number(
-        payments
-          .reduce(
-            (sum, item) => sum + Number(item.platformFee || 0),
-            0,
-          )
-          .toFixed(2),
+      const totals = summarizePayments(
+        paidPayments as CompanyStripePaymentRow[],
       );
 
       return NextResponse.json({
         ok: true,
         source: 'database',
-        payments: payments.map((item) => ({
-          ...item,
-          source: 'database',
-          customerName: item.userName || '',
-          customerEmail: item.userEmail || '',
-          carLabel: [item.make, item.model, item.year]
-            .filter(Boolean)
-            .join(' '),
-          paymentIntentId: item.stripePaymentIntentId || '',
-          chargeId: item.stripeChargeId || '',
-        })),
-        totalRevenue,
-        totalPlatformFee,
-        totalEarnings,
+        payments: databasePayments,
+        totalRevenue: totals.totalRevenue,
+        totalPlatformFee: totals.platformFee,
+        totalEarnings: totals.companyEarnings,
       });
     }
   } catch (err) {

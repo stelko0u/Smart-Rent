@@ -1,6 +1,6 @@
 interface MetricCardProps {
   title: string;
-  value: number;
+  value: number | string;
   icon: React.ReactNode;
   accentClassName: string;
 }
