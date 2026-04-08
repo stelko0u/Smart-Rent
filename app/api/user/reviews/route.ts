@@ -1,65 +1,51 @@
 import { NextResponse } from 'next/server';
-import jwt, { JwtPayload } from 'jsonwebtoken';
-import { UserRepository } from '@/lib/repository/UserRepository';
+import { requireAuthUserFromRequest } from '@/lib/auth';
 import { ReviewRepository } from '@/lib/repository/ReviewRepository';
-import { CarRepository } from '@/lib/repository/CarRepository';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? 'token';
-
-function getTokenFromRequest(req: Request) {
-  const auth = req.headers.get('authorization');
-  if (auth?.startsWith('Bearer ')) return auth.substring(7).trim();
-  const cookieHeader = req.headers.get('cookie') || '';
-  const match = cookieHeader.match(
-    new RegExp(`(^|;\\s*)${COOKIE_NAME}=([^;]+)`),
-  );
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
-async function getUserFromToken(req: Request) {
-  if (!JWT_SECRET) return null;
-  const token = getTokenFromRequest(req);
-  if (!token) return null;
-
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    const userId = Number(payload.userId ?? payload.sub);
-    if (!userId || isNaN(userId)) return null;
-
-    const user = await UserRepository.findById(userId);
-    return user;
-  } catch {
-    return null;
+function parsePositiveInt(value: string | null, fallback: number) {
+  if (!value) {
+    return fallback;
   }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
 }
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromToken(req);
-    if (!user) {
-      return NextResponse.json(
-        { ok: false, error: 'Unauthorized' },
-        { status: 401 },
-      );
-    }
+    const user = await requireAuthUserFromRequest(req);
 
-    const reviews = await ReviewRepository.findByUser(user.id);
+    const { searchParams } = new URL(req.url);
+    const page = parsePositiveInt(searchParams.get('page'), 1);
+    const pageSize = parsePositiveInt(searchParams.get('pageSize'), 6);
 
-    // Load car details for each review
-    const reviewsWithCars = await Promise.all(
-      reviews.map(async (review) => {
-        const car = await CarRepository.findById(review.carId);
-        return { ...review, car };
-      }),
+    const result = await ReviewRepository.findByUserPaginated(
+      user.id,
+      page,
+      pageSize,
     );
 
-    return NextResponse.json({ ok: true, reviews: reviewsWithCars });
+    return NextResponse.json({
+      ok: true,
+      reviews: result.reviews,
+      pagination: {
+        totalCount: result.totalCount,
+        totalPages: result.totalPages,
+        currentPage: result.currentPage,
+        pageSize: result.pageSize,
+      },
+    });
   } catch (err) {
     console.error('GET /api/user/reviews error:', err);
+
     return NextResponse.json(
-      { ok: false, error: 'Server error' },
-      { status: 500 },
+      { ok: false, error: 'Unauthorized' },
+      { status: 401 },
     );
   }
 }

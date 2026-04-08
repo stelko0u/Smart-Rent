@@ -23,6 +23,7 @@ export class ReservationRepository {
       `INSERT INTO "Reservation" (${fields}) VALUES (${placeholders}) RETURNING *`,
       values,
     );
+
     return result!;
   }
 
@@ -37,12 +38,16 @@ export class ReservationRepository {
       [id, status],
     );
   }
+
   static async update(
     id: number,
     data: Partial<Omit<Reservation, 'id' | 'createdAt'>>,
   ): Promise<Reservation | null> {
     const entries = Object.entries(data);
-    if (entries.length === 0) return null;
+
+    if (entries.length === 0) {
+      return null;
+    }
 
     const setClause = entries
       .map(([key], i) => `"${key}" = $${i + 2}`)
@@ -219,5 +224,35 @@ export class ReservationRepository {
     return query(`SELECT id, "userId" FROM "Reservation" WHERE id = $1`, [
       reservationId,
     ]);
+  }
+
+  static async countByUser(userId: number): Promise<number> {
+    const rows = await query<{ count: string }>(
+      `
+      SELECT COUNT(*)::text AS count
+      FROM "Reservation"
+      WHERE "userId" = $1
+      `,
+      [userId],
+    );
+
+    return Number(rows[0]?.count ?? '0');
+  }
+
+  static async findByUserPaginated(
+    userId: number,
+    limit: number,
+    offset: number,
+  ): Promise<Reservation[]> {
+    return query<Reservation>(
+      `
+      SELECT *
+      FROM "Reservation"
+      WHERE "userId" = $1
+      ORDER BY "createdAt" DESC, id DESC
+      LIMIT $2 OFFSET $3
+      `,
+      [userId, limit, offset],
+    );
   }
 }

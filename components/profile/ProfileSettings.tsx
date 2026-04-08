@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   changeUserPassword,
   updateUserProfile,
@@ -8,22 +9,10 @@ import {
   type UpdateUserProfilePayload,
 } from '@/lib/api/userApi';
 import { Circle } from '@/components/icons';
+import type { ProfilePageUser } from '@/app/profile/page';
 
-interface User {
-  id: number;
-  email: string;
-  name?: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  country?: string;
-  postalCode?: string;
-  dateOfBirth?: string;
-}
-
-interface Props {
-  user: User;
-  onUpdate: () => void;
+interface ProfileSettingsProps {
+  user: ProfilePageUser;
 }
 
 type ProfileFormData = {
@@ -42,25 +31,31 @@ type PasswordFormData = {
   confirmPassword: string;
 };
 
-function formatDateForInput(date?: string): string {
-  if (!date) return '';
+function formatDateForInput(date?: Date | string): string {
+  if (!date) {
+    return '';
+  }
 
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return '';
+  const parsed = date instanceof Date ? date : new Date(date);
 
-  return parsed.toISOString().split('T')[0];
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+
+  return parsed.toISOString().split('T')[0] ?? '';
 }
 
-export default function ProfileSettings({ user, onUpdate }: Props) {
+export default function ProfileSettings({ user }: ProfileSettingsProps) {
+  const router = useRouter();
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [formData, setFormData] = useState<ProfileFormData>({
-    name: user.name || '',
-    phone: user.phone || '',
-    address: user.address || '',
-    city: user.city || '',
-    country: user.country || '',
-    postalCode: user.postalCode || '',
+    name: user.name ?? '',
+    phone: user.phone ?? '',
+    address: user.address ?? '',
+    city: user.city ?? '',
+    country: user.country ?? '',
+    postalCode: user.postalCode ?? '',
     dateOfBirth: formatDateForInput(user.dateOfBirth),
   });
 
@@ -136,14 +131,14 @@ export default function ProfileSettings({ user, onUpdate }: Props) {
         city: formData.city.trim(),
         country: formData.country.trim(),
         postalCode: formData.postalCode.trim(),
-        dateOfBirth: formData.dateOfBirth || '',
+        dateOfBirth: formData.dateOfBirth,
       };
 
       await updateUserProfile(payload);
 
       showSuccessMessage('Profile updated successfully!');
-      onUpdate();
-    } catch (err) {
+      router.refresh();
+    } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Failed to update profile';
 
@@ -183,7 +178,7 @@ export default function ProfileSettings({ user, onUpdate }: Props) {
         newPassword: '',
         confirmPassword: '',
       });
-    } catch (err) {
+    } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Failed to change password';
 
@@ -200,19 +195,19 @@ export default function ProfileSettings({ user, onUpdate }: Props) {
           Profile Information
         </h2>
 
-        {error && (
+        {error ? (
           <div className="mb-4 flex items-start gap-2 rounded-lg bg-red-100 p-4 text-red-700">
             <Circle className="mt-0.5 h-5 w-5 shrink-0" fill="currentColor" />
             <span>{error}</span>
           </div>
-        )}
+        ) : null}
 
-        {success && (
+        {success ? (
           <div className="mb-4 flex items-start gap-2 rounded-lg bg-green-100 p-4 text-green-700">
             <Circle className="mt-0.5 h-5 w-5 shrink-0" fill="currentColor" />
             <span>{success}</span>
           </div>
-        )}
+        ) : null}
 
         <form onSubmit={handleProfileUpdate} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">

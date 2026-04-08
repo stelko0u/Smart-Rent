@@ -90,6 +90,15 @@ type GetFavoriteCarsResponse = {
   favorites?: FavoriteCar[];
 };
 
+export interface LoggedInUser {
+  user: {
+    id: number;
+    email: string;
+    name?: string;
+    role: string;
+  };
+}
+
 export type UserReview = {
   id: number;
   carId: number;
@@ -102,21 +111,20 @@ export type UserReview = {
     model: string;
     year: number;
     images: string[];
-  };
+  } | null;
+};
+
+export type UserReviewsPagination = {
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
 };
 
 type GetUserReviewsResponse = {
   reviews?: UserReview[];
+  pagination?: UserReviewsPagination;
 };
-
-export interface LoggedInUser {
-  user: {
-    id: number;
-    email: string;
-    name?: string;
-    role: string;
-  };
-}
 
 export async function getLoggedInUser(): Promise<LoggedInUser> {
   const res = await fetch('/api/auth/me', {
@@ -338,24 +346,38 @@ export async function changeUserPassword(
   return data || {};
 }
 
-export async function getUserReviews(): Promise<UserReview[]> {
-  const res = await fetch('/api/user/reviews', {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      Accept: 'application/json',
+export async function getUserReviews(
+  page = 1,
+  pageSize = 6,
+): Promise<{
+  reviews: UserReview[];
+  pagination: UserReviewsPagination;
+}> {
+  const res = await fetch(
+    `/api/user/reviews?page=${page}&pageSize=${pageSize}`,
+    {
+      credentials: 'include',
+      cache: 'no-store',
     },
-  });
+  );
 
-  const data = (await res
+  const data: GetUserReviewsResponse & { error?: string } = await res
     .json()
-    .catch(() => null)) as GetUserReviewsResponse | null;
+    .catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error('Failed to load reviews');
+    throw new Error(data.error || 'Failed to load reviews');
   }
 
-  return data?.reviews ?? [];
+  return {
+    reviews: data.reviews ?? [],
+    pagination: data.pagination ?? {
+      totalCount: 0,
+      totalPages: 1,
+      currentPage: 1,
+      pageSize,
+    },
+  };
 }
 
 export async function resetPassword(

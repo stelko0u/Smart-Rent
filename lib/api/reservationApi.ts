@@ -87,10 +87,28 @@ export interface UserReservation {
   } | null;
 }
 
+export interface UserReservationsPagination {
+  page: number;
+  limit: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface PaginatedUserReservationsResponse {
+  reservations: UserReservation[];
+  pagination: UserReservationsPagination;
+}
+
+interface GetUserReservationsParams {
+  page?: number;
+  limit?: number;
+}
+
 type GetUserReservationsResponse = {
   ok?: boolean;
   error?: string;
   reservations?: UserReservation[];
+  pagination?: UserReservationsPagination;
 };
 
 export async function fetchReservationById(
@@ -197,10 +215,25 @@ export async function createSimpleReservation(
   return data;
 }
 
+export async function getUserReservations(
+  params?: GetUserReservationsParams,
+): Promise<PaginatedUserReservationsResponse> {
+  const searchParams = new URLSearchParams();
 
+  if (params?.page) {
+    searchParams.set('page', String(params.page));
+  }
 
-export async function getUserReservations(): Promise<UserReservation[]> {
-  const res = await fetch('/api/user/reservations', {
+  if (params?.limit) {
+    searchParams.set('limit', String(params.limit));
+  }
+
+  const queryString = searchParams.toString();
+  const url = queryString
+    ? `/api/user/reservations?${queryString}`
+    : '/api/user/reservations';
+
+  const res = await fetch(url, {
     method: 'GET',
     credentials: 'include',
     headers: {
@@ -217,6 +250,13 @@ export async function getUserReservations(): Promise<UserReservation[]> {
     throw new Error(data?.error || 'Failed to load reservations');
   }
 
-  return data?.reservations ?? [];
+  return {
+    reservations: data?.reservations ?? [],
+    pagination: data?.pagination ?? {
+      page: 1,
+      limit: params?.limit ?? 5,
+      totalItems: 0,
+      totalPages: 1,
+    },
+  };
 }
-

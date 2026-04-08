@@ -9,6 +9,24 @@ export interface Review {
   createdAt: Date;
 }
 
+export interface ReviewWithCar extends Review {
+  car?: {
+    id: number;
+    make: string;
+    model: string;
+    year: number;
+    images: string[];
+  } | null;
+}
+
+export interface PaginatedUserReviewsResult {
+  reviews: ReviewWithCar[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+}
+
 export class ReviewRepository {
   private static async syncIdSequence(): Promise<void> {
     await queryOne(
@@ -118,7 +136,68 @@ export class ReviewRepository {
     );
   }
 
-  static async findByCarId(carId: number): Promise<Array<Review & { userName?: string; userEmail?: string }>> {
+  static async countByUser(userId: number): Promise<number> {
+    const result = await queryOne<{ count: string }>(
+      `
+      SELECT COUNT(*)::text AS count
+      FROM "Review"
+      WHERE "userId" = $1
+      `,
+      [userId],
+    );
+
+    return Number(result?.count ?? '0');
+  }
+
+  static async findByUserPaginated(
+    userId: number,
+    page: number,
+    pageSize: number,
+  ): Promise<PaginatedUserReviewsResult> {
+    const safePage = Math.max(1, page);
+    const safePageSize = Math.max(1, pageSize);
+    const offset = (safePage - 1) * safePageSize;
+
+    const reviews = await query<ReviewWithCar>(
+      `
+      SELECT
+        r.id,
+        r."userId",
+        r."carId",
+        r.rating,
+        r.comment,
+        r."createdAt",
+        json_build_object(
+          'id', c.id,
+          'make', c.make,
+          'model', c.model,
+          'year', c.year,
+          'images', COALESCE(c.images, ARRAY[]::text[])
+        ) AS car
+      FROM "Review" r
+      LEFT JOIN "Car" c ON c.id = r."carId"
+      WHERE r."userId" = $1
+      ORDER BY r."createdAt" DESC
+      LIMIT $2 OFFSET $3
+      `,
+      [userId, safePageSize, offset],
+    );
+
+    const totalCount = await this.countByUser(userId);
+    const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
+
+    return {
+      reviews,
+      totalCount,
+      totalPages,
+      currentPage: Math.min(safePage, totalPages),
+      pageSize: safePageSize,
+    };
+  }
+
+  static async findByCarId(
+    carId: number,
+  ): Promise<Array<Review & { userName?: string; userEmail?: string }>> {
     return query(
       `
     SELECT
@@ -184,4 +263,8 @@ export class ReviewRepository {
       [userId, carId],
     );
   }
+
+
+  
+  
 }
