@@ -260,7 +260,57 @@ export default function CompanyReports() {
           }
         />
 
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-gray-200 sm:hidden">
+          {currentItems.length === 0 ? (
+            <CompanyPanelEmptyState
+              title={t('companyReports.noPaymentsInRange')}
+              description={t('companyReports.noPaymentsInRangeDescription')}
+            />
+          ) : (
+            currentItems.map((item, index) => (
+              <article
+                key={`${item.reservationId || 'report-mobile'}-${index}`}
+                className="space-y-3 px-4 py-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {item.reservationId ? `#${item.reservationId}` : '—'}
+                  </p>
+                  <span className="text-xs text-gray-500">{formatDate(item.paidAt)}</span>
+                </div>
+
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">{item.customerName || '—'}</p>
+                  <p className="mt-0.5 break-all text-gray-500">
+                    {item.customerEmail || t('companyReports.noEmail')}
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-gray-50 p-2 text-xs text-gray-700">
+                  {item.carLabel || '—'}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-lg bg-gray-50 p-2">
+                    <p className="text-gray-500">{t('companyReports.gross')}</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">{money(item.amount)}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-2">
+                    <p className="text-gray-500">{t('companyReports.feeNet')}</p>
+                    <p className="mt-1 font-medium text-red-600">
+                      {t('companyReports.fee')} {money(item.platformFee)}
+                    </p>
+                    <p className="font-semibold text-emerald-600">
+                      {t('companyReports.net')} {money(item.companyEarnings)}
+                    </p>
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto sm:block">
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
               <tr className="bg-gray-50">

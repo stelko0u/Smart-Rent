@@ -106,7 +106,7 @@ export function AdminAuditTable({ logs }: AdminAuditTableProps) {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <label className="flex min-w-[180px] flex-col gap-1">
+                <label className="flex min-w-45 flex-col gap-1">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     {t('audit.search')}
                   </span>
@@ -118,7 +118,7 @@ export function AdminAuditTable({ logs }: AdminAuditTableProps) {
                   />
                 </label>
 
-                <label className="flex min-w-[160px] flex-col gap-1">
+                <label className="flex min-w-40 flex-col gap-1">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     {t('audit.entity')}
                   </span>
@@ -137,7 +137,7 @@ export function AdminAuditTable({ logs }: AdminAuditTableProps) {
                   </select>
                 </label>
 
-                <label className="flex min-w-[160px] flex-col gap-1">
+                <label className="flex min-w-40 flex-col gap-1">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     {t('audit.operationType')}
                   </span>
@@ -158,7 +158,7 @@ export function AdminAuditTable({ logs }: AdminAuditTableProps) {
                   </select>
                 </label>
 
-                <label className="flex min-w-[160px] flex-col gap-1">
+                <label className="flex min-w-40 flex-col gap-1">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     {t('audit.status')}
                   </span>
@@ -243,7 +243,7 @@ export function AdminAuditTable({ logs }: AdminAuditTableProps) {
                       } hover:bg-sky-50/60`}
                     >
                       <td className="border-b border-slate-100 px-4 py-4 text-sm text-slate-700">
-                        <div className="min-w-[150px] leading-6">
+                        <div className="min-w-37.5 leading-6">
                           {formatDateTime(log.createdAt)}
                         </div>
                       </td>
@@ -270,13 +270,13 @@ export function AdminAuditTable({ logs }: AdminAuditTableProps) {
                       </td>
 
                       <td className="border-b border-slate-100 px-4 py-4 text-sm text-slate-700">
-                        <div className="min-w-[220px] max-w-[280px] leading-6">
+                        <div className="min-w-55 max-w-70 leading-6">
                           {log.action}
                         </div>
                       </td>
 
                       <td className="border-b border-slate-100 px-4 py-4 text-sm text-slate-700">
-                        <div className="min-w-[210px] space-y-1">
+                        <div className="min-w-52.5 space-y-1">
                           <div className="font-semibold text-slate-900">
                             {getActorLabel(log, t)}
                           </div>
@@ -290,19 +290,19 @@ export function AdminAuditTable({ logs }: AdminAuditTableProps) {
                       </td>
 
                       <td className="border-b border-slate-100 px-4 py-4 text-sm text-slate-700">
-                        <div className="min-w-[70px] font-medium">
+                        <div className="min-w-17.5 font-medium">
                           {log.companyId ?? '-'}
                         </div>
                       </td>
 
                       <td className="border-b border-slate-100 px-4 py-4 text-sm text-slate-700">
-                        <div className="min-w-[130px] max-w-[150px] break-all rounded-xl bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700">
+                        <div className="min-w-32.5 max-w-37.5 break-all rounded-xl bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700">
                           {log.ipAddress || t('audit.noData')}
                         </div>
                       </td>
 
                       <td className="border-b border-slate-100 px-4 py-4 text-sm text-slate-700">
-                        <div className="min-w-[170px] space-y-1">
+                        <div className="min-w-42.5 space-y-1">
                           <div className="font-medium text-slate-900">
                             {getLocationLabel(log, t)}
                           </div>

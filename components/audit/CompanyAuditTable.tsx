@@ -121,7 +121,7 @@ export function CompanyAuditTable({ logs }: CompanyAuditTableProps) {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <label className="flex min-w-[180px] flex-col gap-1">
+                <label className="flex min-w-45 flex-col gap-1">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     {t('audit.search')}
                   </span>
@@ -133,7 +133,7 @@ export function CompanyAuditTable({ logs }: CompanyAuditTableProps) {
                   />
                 </label>
 
-                <label className="flex min-w-[160px] flex-col gap-1">
+                <label className="flex min-w-40 flex-col gap-1">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     {t('audit.entity')}
                   </span>
@@ -152,7 +152,7 @@ export function CompanyAuditTable({ logs }: CompanyAuditTableProps) {
                   </select>
                 </label>
 
-                <label className="flex min-w-[160px] flex-col gap-1">
+                <label className="flex min-w-40 flex-col gap-1">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     {t('audit.operationType')}
                   </span>
@@ -173,7 +173,7 @@ export function CompanyAuditTable({ logs }: CompanyAuditTableProps) {
                   </select>
                 </label>
 
-                <label className="flex min-w-[160px] flex-col gap-1">
+                <label className="flex min-w-40 flex-col gap-1">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     {t('audit.status')}
                   </span>
@@ -204,7 +204,7 @@ export function CompanyAuditTable({ logs }: CompanyAuditTableProps) {
 
           <div className="p-4 md:p-5">
             {filteredLogs.length === 0 ? (
-              <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-12 text-center text-sm text-slate-500">
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-12 text-center text-sm text-slate-500">
                 {t('audit.noRecords')}
               </div>
             ) : (
@@ -212,7 +212,7 @@ export function CompanyAuditTable({ logs }: CompanyAuditTableProps) {
                 {filteredLogs.map((log) => (
                   <article
                     key={log.id}
-                    className="rounded-[24px] border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm transition hover:border-violet-200 hover:shadow-md"
+                    className="rounded-3xl border border-slate-200 bg-linear-to-br from-white to-slate-50 p-4 shadow-sm transition hover:border-violet-200 hover:shadow-md"
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-3">

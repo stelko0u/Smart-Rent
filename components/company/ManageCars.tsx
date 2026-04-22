@@ -23,6 +23,7 @@ import {
   CompanyPanelInfoCard,
   CompanyPanelMetricCard,
   CompanyPanelPageHeader,
+  CompanyPanelPagination,
   CompanyPanelSearch,
   CompanyPanelTabs,
   CompanyPanelToolbar,
@@ -36,6 +37,7 @@ import {
 } from '@/lib/utils/vehicleLocalization';
 
 type CarsViewMode = 'grid' | 'list';
+const PAGE_SIZE = 9;
 
 interface ManageCarsProps {
   cars: Car[];
@@ -71,6 +73,7 @@ export default function ManageCars({ cars, onRefresh }: ManageCarsProps) {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<CarsViewMode>('grid');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [editCarId, setEditCarId] = useState<number | null>(null);
   const [deleteCarId, setDeleteCarId] = useState<number | null>(null);
 
@@ -95,6 +98,21 @@ export default function ManageCars({ cars, onRefresh }: ManageCarsProps) {
         .includes(query),
     );
   }, [cars, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCars.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const paginatedCars = filteredCars.slice(pageStart, pageStart + PAGE_SIZE);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  React.useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const selectedCar = cars.find((car) => car.id === editCarId) ?? null;
 
@@ -230,7 +248,7 @@ export default function ManageCars({ cars, onRefresh }: ManageCarsProps) {
           />
         ) : viewMode === 'grid' ? (
           <div className="grid gap-6 px-6 pb-6 sm:px-8 xl:grid-cols-3">
-            {filteredCars.map((car) => (
+            {paginatedCars.map((car) => (
               <article
                 key={car.id}
                 className="group overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
@@ -345,7 +363,7 @@ export default function ManageCars({ cars, onRefresh }: ManageCarsProps) {
           </div>
         ) : (
           <div className="space-y-4 px-6 pb-6 sm:px-8">
-            {filteredCars.map((car) => (
+            {paginatedCars.map((car) => (
               <article
                 key={car.id}
                 className="overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
@@ -484,6 +502,14 @@ export default function ManageCars({ cars, onRefresh }: ManageCarsProps) {
             ))}
           </div>
         )}
+
+        <CompanyPanelPagination
+          currentPage={safePage}
+          totalPages={totalPages}
+          totalItems={filteredCars.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       </CompanyPanelCard>
 
       {editCarId && selectedCar && (

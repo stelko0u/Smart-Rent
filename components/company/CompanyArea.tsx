@@ -1,42 +1,31 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import CompanySidebar from './CompanySidebar';
-import CompanyDashboard from './CompanyDashboard';
-import CompanyReservations from './CompanyReservations';
-import CompanyPayments from './CompanyPayments';
-import ManageCars from './ManageCars';
-import AddCarForm from './AddCarForm';
-import CompanyOffices from './CompanyOffices';
 import { useSearchParams } from 'next/navigation';
 import { Car } from '@/types/database';
-import CompanyInvoices from './CompanyInvoices';
-import CompanyReports from './CompanyReports';
 import {
   getCompanyAccessStatus,
   getCompanyCars,
-  getCompanyMe,
   getCompanyStripeOnboardingLink,
   type CompanyAccessState,
 } from '@/lib/api/companyApi';
-import { CompanyAuditPageClient } from '../audit/CompanyAuditPageClient';
 import { useTranslation } from '@/providers/LanguageProvider';
 
-async function parseJsonSafe(res: Response) {
-  const text = await res.text();
-  const ct = (res.headers.get('content-type') || '').toLowerCase();
-  if (!ct.includes('application/json')) {
-    throw new Error(
-      `Expected JSON but got ${ct || 'unknown'} (status ${res.status})`,
-    );
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error('Invalid JSON response');
-  }
-}
+const CompanyDashboard = dynamic(() => import('./CompanyDashboard'));
+const CompanyReservations = dynamic(() => import('./CompanyReservations'));
+const CompanyPayments = dynamic(() => import('./CompanyPayments'));
+const CompanyInvoices = dynamic(() => import('./CompanyInvoices'));
+const CompanyReports = dynamic(() => import('./CompanyReports'));
+const ManageCars = dynamic(() => import('./ManageCars'));
+const AddCarForm = dynamic(() => import('./AddCarForm'));
+const CompanyOffices = dynamic(() => import('./CompanyOffices'));
+const CompanyAuditPageClient = dynamic(() =>
+  import('../audit/CompanyAuditPageClient').then(
+    (module) => module.CompanyAuditPageClient,
+  ),
+);
 
 export default function CompanyArea() {
   const { t } = useTranslation();
@@ -51,44 +40,23 @@ export default function CompanyArea() {
   const [creatingOnboardingLink, setCreatingOnboardingLink] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadCompanyData();
-  }, []);
-
-  useEffect(() => {
-    if (active === 'manage-cars' && access?.allowed) {
-      loadCars();
-    }
-  }, [active, access?.allowed]);
-
-  useEffect(() => {
-    const tab = searchParams?.get('tab') ?? searchParams?.get('section');
-    if (tab && typeof tab === 'string') {
-      setActive(tab);
-    }
-  }, [searchParams]);
-
-  async function loadCompanyData() {
+  const loadCompanyData = useCallback(async () => {
     setCheckingAccess(true);
 
     try {
       setError(null);
 
-      const [companyData, accessData] = await Promise.all([
-        getCompanyMe(),
-        getCompanyAccessStatus(),
-      ]);
-
-      setCompany(companyData);
+      const accessData = await getCompanyAccessStatus();
+      setCompany(accessData?.company ?? null);
       setAccess(accessData);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('companyArea.loadingFailed'));
     } finally {
       setCheckingAccess(false);
     }
-  }
+  }, [t]);
 
-  async function loadCars() {
+  const loadCars = useCallback(async () => {
     try {
       setError(null);
       const nextCars = await getCompanyCars();
@@ -96,7 +64,24 @@ export default function CompanyArea() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('companyArea.failedLoadCars'));
     }
-  }
+  }, [t]);
+
+  useEffect(() => {
+    void loadCompanyData();
+  }, [loadCompanyData]);
+
+  useEffect(() => {
+    if (active === 'manage-cars' && access?.allowed) {
+      void loadCars();
+    }
+  }, [active, access?.allowed, loadCars]);
+
+  useEffect(() => {
+    const tab = searchParams?.get('tab') ?? searchParams?.get('section');
+    if (tab && typeof tab === 'string') {
+      setActive(tab);
+    }
+  }, [searchParams]);
 
   async function handleCarCreated() {
     await loadCars();
@@ -126,10 +111,27 @@ export default function CompanyArea() {
     access.onboardingRequired &&
     access.allowed === false;
 
+  useEffect(() => {
+    const tabTitleMap: Record<string, string> = {
+      dashboard: t('companySidebar.dashboard'),
+      reservations: t('companySidebar.reservations'),
+      payments: t('companySidebar.payments'),
+      invoices: t('companySidebar.invoices'),
+      reports: t('companySidebar.reports'),
+      'manage-cars': t('companySidebar.manageCars'),
+      offices: t('companySidebar.offices'),
+      audit: t('companySidebar.auditLogs'),
+      'add-car': t('nav.addCar'),
+    };
+
+    const tabTitle = tabTitleMap[active] || t('companySidebar.companyPanel');
+    document.title = `${tabTitle} | Smart Rent`;
+  }, [active, t]);
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-375 mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-4 gap-6">
+    <div className="min-h-screen overflow-x-hidden bg-gray-50">
+      <div className="mx-auto max-w-375 px-3 py-4 sm:px-4 sm:py-6 lg:py-8">
+        <div className="grid gap-4 lg:grid-cols-4 lg:gap-6">
           <div className="lg:col-span-1">
             <CompanySidebar
               company={company}
@@ -139,31 +141,31 @@ export default function CompanyArea() {
             />
           </div>
 
-          <div className="lg:col-span-3">
+          <div className="min-w-0 lg:col-span-3">
             {error && (
-              <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg">
+              <div className="mb-4 rounded-lg bg-red-100 p-4 text-red-700 sm:mb-6">
                 {error}
               </div>
             )}
 
             {checkingAccess ? (
-              <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-8">
+              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
                 <div className="text-lg text-gray-600">
                   {t('companyArea.checkingAccess')}
                 </div>
               </div>
             ) : isLocked ? (
               <div className="rounded-2xl border border-amber-200 bg-white shadow-sm overflow-hidden">
-                <div className="bg-amber-50 border-b border-amber-200 px-6 py-5">
-                  <h2 className="text-2xl font-bold text-amber-900">
+                <div className="border-b border-amber-200 bg-amber-50 px-4 py-4 sm:px-6 sm:py-5">
+                  <h2 className="text-xl font-bold text-amber-900 sm:text-2xl">
                     {t('companyArea.finishActivation')}
                   </h2>
-                  <p className="mt-2 text-amber-800">
+                  <p className="mt-2 text-sm text-amber-800 sm:text-base">
                     {t('companyArea.lockedDescription')}
                   </p>
                 </div>
 
-                <div className="p-6 space-y-5">
+                <div className="space-y-5 p-4 sm:p-6">
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                     <h3 className="font-semibold text-gray-900 mb-3">
                       {t('companyArea.activationChecklist')}

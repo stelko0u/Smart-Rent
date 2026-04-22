@@ -260,7 +260,85 @@ export default function CompanyInvoices() {
           }
         />
 
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-gray-200 sm:hidden">
+          {currentItems.length === 0 ? (
+            <CompanyPanelEmptyState
+              title={t('companyInvoices.noInvoices')}
+              description={t('companyInvoices.noInvoicesDescription')}
+            />
+          ) : (
+            currentItems.map((invoice) => (
+              <article key={invoice.id} className="space-y-3 px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {invoice.number || invoice.id}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {t('companyInvoices.created')} {formatDate(invoice.created)}
+                    </p>
+                  </div>
+                  <CompanyPanelBadge tone={getStatusTone(invoice.status)}>
+                    {invoice.status || t('companyInvoices.unknownStatus')}
+                  </CompanyPanelBadge>
+                </div>
+
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">
+                    #{invoice.reservationId} - {invoice.customerName || '—'}
+                  </p>
+                  <p className="mt-0.5 break-all text-gray-500">
+                    {invoice.customerEmail || t('companyInvoices.noEmail')}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-lg bg-gray-50 p-2">
+                    <p className="text-gray-500">{t('companyInvoices.gross')}</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">
+                      {formatMoney(invoice.grossAmount || invoice.total, invoice.currency)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-2">
+                    <p className="text-gray-500">{t('companyInvoices.feeNet')}</p>
+                    <p className="mt-1 font-medium text-red-600">
+                      {t('companyInvoices.fee')} {formatMoney(invoice.platformFee || 0, invoice.currency)}
+                    </p>
+                    <p className="font-semibold text-emerald-600">
+                      {t('companyInvoices.net')} {formatMoney(invoice.companyEarnings || 0, invoice.currency)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {invoice.hosted_invoice_url ? (
+                    <a
+                      href={invoice.hosted_invoice_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-10 items-center rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                    >
+                      {t('companyInvoices.open')}
+                    </a>
+                  ) : null}
+
+                  {invoice.invoice_pdf ? (
+                    <a
+                      href={invoice.invoice_pdf}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-10 items-center rounded-xl bg-indigo-600 px-3 text-sm font-medium text-white transition hover:bg-indigo-700"
+                    >
+                      {t('companyInvoices.pdf')}
+                    </a>
+                  ) : null}
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto sm:block">
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
               <tr className="bg-gray-50">

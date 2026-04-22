@@ -1,3 +1,5 @@
+'use client';
+
 /* eslint-disable @next/next/no-img-element */
 import React from 'react';
 import Link from 'next/link';
@@ -26,17 +28,19 @@ function formatReviewDate(value: Date | string) {
   });
 }
 
+interface PaginationLinkProps {
+  page: number;
+  label: React.ReactNode;
+  isActive?: boolean;
+  isDisabled?: boolean;
+}
+
 function PaginationLink({
   page,
   label,
   isActive = false,
   isDisabled = false,
-}: {
-  page: number;
-  label: React.ReactNode;
-  isActive?: boolean;
-  isDisabled?: boolean;
-}) {
+}: PaginationLinkProps) {
   if (isDisabled) {
     return (
       <span className="inline-flex min-w-10 items-center justify-center rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-400">
@@ -85,7 +89,9 @@ export default function UserReviews({
   return (
     <div className="overflow-hidden rounded-lg bg-white shadow">
       <div className="border-b p-6">
-        <h2 className="text-xl font-semibold text-gray-800">{t('userReviews.title')}</h2>
+        <h2 className="text-xl font-semibold text-gray-800">
+          {t('userReviews.title')}
+        </h2>
         <p className="mt-1 text-sm text-gray-600">
           {t('userReviews.subtitle')}
         </p>
@@ -157,7 +163,10 @@ export default function UserReviews({
       {totalPages > 1 ? (
         <div className="flex flex-col gap-4 border-t px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-gray-600">
-            {t('userReviews.pageOf', { current: currentPage, total: totalPages })}
+            {t('userReviews.pageOf', {
+              current: currentPage,
+              total: totalPages,
+            })}
           </p>
 
           <div className="flex flex-wrap items-center gap-2">

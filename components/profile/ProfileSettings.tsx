@@ -50,7 +50,6 @@ export default function ProfileSettings({ user }: ProfileSettingsProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { t } = useTranslation();
 
   const [formData, setFormData] = useState<ProfileFormData>({
     name: user.name ?? '',

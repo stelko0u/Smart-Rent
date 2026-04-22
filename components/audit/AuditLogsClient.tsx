@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AuditTable } from '@/components/audit/AdminAuditTable';
+import { AdminAuditTable } from '@/components/audit/AdminAuditTable';
+import { CompanyAuditTable } from '@/components/audit/CompanyAuditTable';
 import { buildAuditCsv, downloadAuditCsv } from '@/components/audit/auditCsv';
 import { getAdminAuditLogs, getCompanyAuditLogs } from '@/lib/api/auditApi';
 import type {
@@ -289,7 +290,11 @@ export function AuditLogsClient({
         </div>
       ) : null}
 
-      <AuditTable logs={data.logs} showCompanyColumn={showCompanyColumn} />
+      {mode === 'admin' || showCompanyColumn ? (
+        <AdminAuditTable logs={data.logs} />
+      ) : (
+        <CompanyAuditTable logs={data.logs} />
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
         <div className="text-sm text-slate-600">

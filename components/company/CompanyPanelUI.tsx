@@ -128,18 +128,22 @@ export function CompanyPanelStatCard({
     variant === 'surface' ? 'text-gray-500' : 'text-white/80';
 
   return (
-    <div className={`rounded-3xl border p-6 ${wrapperClassName}`}>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
+    <div className={`rounded-3xl border p-4 sm:p-6 ${wrapperClassName}`}>
+      <div className="mb-4 flex items-start justify-between gap-3 sm:mb-6 sm:gap-4">
+        <div className="min-w-0">
           <p className={`text-sm font-medium ${mutedClassName}`}>{title}</p>
-          <p className="mt-3 text-4xl font-bold tracking-tight">{value}</p>
+          <p className="mt-2 truncate text-3xl font-bold tracking-tight sm:mt-3 sm:text-4xl">
+            {value}
+          </p>
         </div>
 
-        <div className={`rounded-2xl p-3 ${iconClassName}`}>{icon}</div>
+        <div className={`shrink-0 rounded-2xl p-2.5 sm:p-3 ${iconClassName}`}>
+          {icon}
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <p className={`text-sm ${mutedClassName}`}>{subtitle}</p>
+        <p className={`min-w-0 text-sm ${mutedClassName}`}>{subtitle}</p>
         {badge ? (
           <span
             className={
@@ -170,12 +174,14 @@ export function CompanyPanelMetricCard({
   accentClassName,
 }: CompanyPanelMetricCardProps) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-transform duration-200 hover:-translate-y-0.5">
-      <div className="flex items-center gap-4">
-        <div className={`rounded-2xl p-3 ${accentClassName}`}>{icon}</div>
-        <div>
-          <p className="text-2xl font-semibold text-gray-900">{value}</p>
-          <p className="text-sm text-gray-500">{title}</p>
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 sm:p-5">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <div className={`shrink-0 rounded-2xl p-2.5 sm:p-3 ${accentClassName}`}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-xl font-semibold text-gray-900 sm:text-2xl">{value}</p>
+          <p className="line-clamp-2 text-sm text-gray-500">{title}</p>
         </div>
       </div>
     </div>
@@ -205,7 +211,7 @@ export function CompanyPanelCard({
           ) : null}
         </div>
 
-        {rightSlot ? <div>{rightSlot}</div> : null}
+        {rightSlot ? <div className="w-full sm:w-auto">{rightSlot}</div> : null}
       </div>
 
       <div>{children}</div>
@@ -244,8 +250,8 @@ export function CompanyPanelToolbar({
 }: CompanyPanelToolbarProps) {
   return (
     <div className="flex flex-col gap-3 px-6 py-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
-      <div>{leftSlot}</div>
-      <div>{rightSlot}</div>
+      <div className="min-w-0">{leftSlot}</div>
+      <div className="w-full min-w-0 lg:w-auto">{rightSlot}</div>
     </div>
   );
 }
@@ -312,7 +318,7 @@ export function CompanyPanelSearch({
   placeholder,
 }: CompanyPanelSearchProps) {
   return (
-    <div className="relative min-w-[260px]">
+    <div className="relative w-full min-w-0 lg:min-w-[260px]">
       <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
       <input
         value={value}

@@ -307,7 +307,77 @@ export default function CompanyReservations() {
           }
         />
 
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-gray-200 sm:hidden">
+          {currentItems.length === 0 ? (
+            <CompanyPanelEmptyState
+              title="No reservations found"
+              description="Try changing the current filter or search query."
+            />
+          ) : (
+            currentItems.map((reservation) => (
+              <article key={reservation.id} className="space-y-3 px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">#{reservation.id}</p>
+                    <p className="text-sm text-gray-600">
+                      {reservation.carMake} {reservation.carModel}
+                    </p>
+                  </div>
+                  <CompanyPanelBadge tone={getStatusTone(reservation.status)}>
+                    {normalizeLabel(reservation.status)}
+                  </CompanyPanelBadge>
+                </div>
+
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">{reservation.customerName}</p>
+                  <p className="mt-0.5 break-all text-gray-500">{reservation.customerEmail}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-lg bg-gray-50 p-2">
+                    <p className="text-gray-500">Period</p>
+                    <p className="mt-1 font-medium text-gray-700">
+                      {formatDate(reservation.startDate)}
+                    </p>
+                    <p className="text-gray-500">to {formatDate(reservation.endDate)}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-2">
+                    <p className="text-gray-500">Amount</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">
+                      {formatMoney(reservation.totalPrice)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {reservation.paymentMethod === 'ON_SPOT' &&
+                  reservation.paymentStatus !== 'PAID' &&
+                  reservation.status !== 'CANCELLED' ? (
+                    <ConfirmCashPaymentButton
+                      reservationId={reservation.id}
+                      initialPaymentStatus={reservation.paymentStatus}
+                      initialReservationStatus={reservation.status}
+                    />
+                  ) : (
+                    <span
+                      className={
+                        reservation.paymentStatus === 'PAID'
+                          ? 'inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700'
+                          : reservation.paymentStatus === 'PENDING'
+                            ? 'inline-flex w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700'
+                            : 'inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700'
+                      }
+                    >
+                      {reservation.paymentStatus}
+                    </span>
+                  )}
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto sm:block">
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
               <tr className="bg-gray-50">

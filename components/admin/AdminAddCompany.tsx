@@ -44,27 +44,27 @@ export default function AdminAddCompany() {
   }
 
   return (
-    <section className="max-h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50 py-12 px-6">
+    <section className="min-h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50 px-4 py-6 sm:px-6 sm:py-10">
       <div className="mx-auto w-full max-w-7xl">
-        <div className="mb-10">
-          <h2 className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
+        <div className="mb-6 sm:mb-10">
+          <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:mt-3 sm:text-4xl">
             {t('adminAddCompany.title')}
           </h2>
 
-          <p className="mt-2 text-slate-500">
+          <p className="mt-2 text-sm text-slate-500 sm:text-base">
             {t('adminAddCompany.subtitle')}
           </p>
         </div>
 
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
-          <div className="border-b border-slate-100 bg-linear-to-r from-indigo-600 to-violet-600 px-8 py-8 text-white">
-            <h3 className="text-xl font-semibold">{t('adminAddCompany.newCompanyDetails')}</h3>
+          <div className="border-b border-slate-100 bg-linear-to-r from-indigo-600 to-violet-600 px-4 py-5 text-white sm:px-8 sm:py-8">
+            <h3 className="text-lg font-semibold sm:text-xl">{t('adminAddCompany.newCompanyDetails')}</h3>
             <p className="mt-1 text-indigo-100">
               {t('adminAddCompany.formDescription')}
             </p>
           </div>
 
-          <div className="p-10">
+          <div className="p-4 sm:p-8 lg:p-10">
             {error && (
               <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700 shadow-sm">
                 {error}
@@ -77,10 +77,7 @@ export default function AdminAddCompany() {
               </div>
             )}
 
-            <form
-              onSubmit={submit}
-              className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3"
-            >
+            <form onSubmit={submit} className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
               {/* Company Name */}
               <div className="xl:col-span-2">
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
@@ -168,11 +165,11 @@ export default function AdminAddCompany() {
               </div> */}
 
               {/* Submit */}
-              <div className="md:col-span-2 xl:col-span-3 flex justify-end pt-4">
+              <div className="flex justify-stretch pt-2 md:col-span-2 md:justify-end xl:col-span-3 xl:pt-4">
                 <button
                   type="submit"
                   disabled={busy}
-                  className="inline-flex items-center justify-center rounded-xl bg-linear-to-r from-indigo-600 to-violet-600 px-8 py-3 font-semibold text-white shadow-lg shadow-indigo-200 transition hover:scale-[1.02] hover:from-indigo-700 hover:to-violet-700 focus:outline-none focus:ring-4 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center rounded-xl bg-linear-to-r from-indigo-600 to-violet-600 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-200 transition hover:scale-[1.01] hover:from-indigo-700 hover:to-violet-700 focus:outline-none focus:ring-4 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto md:px-8"
                 >
                   {busy ? t('adminAddCompany.creating') : t('adminAddCompany.createCompany')}
                 </button>

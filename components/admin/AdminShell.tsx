@@ -9,6 +9,7 @@ import AdminAddCompany from './AdminAddCompany';
 import AdminCars from './AdminCars';
 import AdminUsersPage from './AdminManageUsers';
 import { AdminAuditPageClient } from '../audit/AdminAuditPageClient';
+import { useTranslation } from '@/providers/LanguageProvider';
 
 type AdminShellProps = {
   me: { name?: string; email?: string; role?: string; id?: number } | null;
@@ -16,6 +17,7 @@ type AdminShellProps = {
 };
 
 export default function AdminShell({ children }: AdminShellProps) {
+  const { t } = useTranslation();
   const searchParams = useSearchParams();
   const [active, setActive] = useState<string>('dashboard');
 
@@ -26,11 +28,25 @@ export default function AdminShell({ children }: AdminShellProps) {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    const tabTitleMap: Record<string, string> = {
+      dashboard: t('adminSidebar.dashboard'),
+      companies: t('adminSidebar.manageCompanies'),
+      'add-company': t('adminSidebar.addCompany'),
+      cars: t('adminSidebar.manageCars'),
+      users: t('adminSidebar.manageUsers'),
+      audit: t('adminSidebar.auditLogs'),
+    };
+
+    const tabTitle = tabTitleMap[active] || t('adminSidebar.panelTitle');
+    document.title = `${tabTitle} | Smart Rent`;
+  }, [active, t]);
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
-      <div className="flex">
+      <div className="flex flex-col md:flex-row">
         <AdminSidebar active={active} setActive={setActive} />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 sm:p-6">
           <header className="mb-6">
             {/* <h1 className="text-2xl font-semibold">
               Admin — {me?.name ?? 'User'}

@@ -28,7 +28,7 @@ function HomeContent({
   const { t } = useTranslation();
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#ffffff_0%,_#f8fafc_40%,_#eef2f7_100%)] text-gray-800">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#ffffff_0%,#f8fafc_40%,#eef2f7_100%)] text-gray-800">
       <div className="flex min-h-screen">
         <aside className="hidden xl:sticky xl:top-0 xl:block xl:h-screen">
           <Sidebar
@@ -54,7 +54,7 @@ function HomeContent({
           />
 
           <div
-            className={`relative h-full w-[290px] max-w-[85vw] bg-white shadow-2xl transition-transform duration-300 ${
+            className={`relative h-full w-72.5 max-w-[85vw] bg-white shadow-2xl transition-transform duration-300 ${
               mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >
@@ -69,9 +69,8 @@ function HomeContent({
             />
           </div>
         </div>
-
         <main className="flex-1">
-          <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-5 md:px-6 lg:px-8 lg:py-6">
+          <div className="mx-auto max-w-400-4 py-4 sm:px-5 md:px-6 lg:px-8 lg:py-6">
             <div className="rounded-[30px] border border-white/60 bg-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl">
               <div className="p-4 sm:p-5 md:p-6 lg:p-8">
                 <MobileTopBar

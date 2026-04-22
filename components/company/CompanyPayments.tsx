@@ -453,7 +453,7 @@ export default function CompanyPayments() {
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400 lg:hidden">
                       Car
                     </p>
-                    <div className="break-words text-sm text-gray-700">
+                    <div className="wrap-break-words text-sm text-gray-700">
                       {payment.carLabel || '—'}
                     </div>
                   </div>

@@ -2,6 +2,14 @@ import { Toaster } from 'react-hot-toast';
 import './globals.css';
 import { LanguageProvider } from '@/providers/LanguageProvider';
 import { AlertProvider } from '@/providers/AlertProvider';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: {
+    default: 'Smart Rent',
+    template: '%s | Smart Rent',
+  },
+};
 
 export default function RootLayout({
   children,
